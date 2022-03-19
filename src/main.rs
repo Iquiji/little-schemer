@@ -1,5 +1,5 @@
 use core::fmt;
-use std::sync::Arc;
+use std::{sync::Arc, result};
 
 mod built_ins;
 
@@ -12,7 +12,7 @@ fn main() {
 
     let interpreter: Interpreter = Interpreter::new();
 
-    println!("end result: {:?}",interpreter.eval_part(&programm));
+    println!("end result: {:?}", interpreter.eval_part(&programm));
 }
 
 struct Interpreter {
@@ -23,24 +23,22 @@ impl Interpreter {
     fn new() -> Self {
         Interpreter {
             functions: vec![
-                FunctionTypes::InBuildFunction(
-                    (
-                    "atom?".to_owned(),
-                    Arc::new(built_ins::is_atom),
-                    1,
-                    )
-                ),
-                FunctionTypes::InBuildFunction(
-                    (
-                    "car".to_owned(),
-                    Arc::new(built_ins::car),
-                    1,
-                    )
-                ),
+                FunctionTypes::InBuildFunction(("atom?".to_owned(),Arc::new(built_ins::is_atom),1,)),
+                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
+                FunctionTypes::InBuildFunction(("cdr".to_owned(), Arc::new(built_ins::cdr), 1)),
+                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
+                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
+                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
             ],
         }
     }
     fn eval_keyword(&self, word: &str) -> ExpressionTypes {
+        // Declarition of empty List '()
+        if word == "'()"{
+            return ExpressionTypes::List(vec![])
+        }
+
+        // Declaration of atoms 'atom
         if word.starts_with('\'') {
             let temp = &(*word).strip_prefix('\'').unwrap();
 
@@ -50,6 +48,8 @@ impl Interpreter {
                 return ExpressionTypes::Atom(AtomTypes::String(temp.to_string()));
             }
         }
+
+        // True and False
         if word == "#f" {
             return ExpressionTypes::Atom(AtomTypes::Bool(false));
         }
@@ -57,6 +57,7 @@ impl Interpreter {
             return ExpressionTypes::Atom(AtomTypes::Bool(true));
         }
 
+        // Check for Function Names
         for temp_enum in &self.functions {
             match temp_enum {
                 FunctionTypes::InBuildFunction(func_tuple) => {
@@ -69,108 +70,105 @@ impl Interpreter {
                 FunctionTypes::CustomFunction => todo!(),
             }
         }
-
-        ExpressionTypes::Nil
+        eprintln!("Couldn't parse single word: {}",word);
+        panic!();
+        //ExpressionTypes::Nil
     }
+
     // Take part of the String Evaluate it and call self with the rest and so on
     fn eval_part(&self, s: &str) -> ExpressionTypes {
-        println!("!Taking!: {}",s);
+        println!("!Taking!: {}", s);
+        let mut result = ExpressionTypes::Nil;
 
-        // Take to eiter ')' or ' '
-        let current_part = s.split_once([')', ' ']);
-        if let Some((current_part, next_part)) = current_part {
-            println!("current: '{}' next: '{}'", current_part, next_part);
-            if current_part.starts_with('(') {
-                println!("Cutting ( and )");
-                let mut current_parsed = ExpressionTypes::Nil;
-                let mut next_parsed = ExpressionTypes::Nil;
+        let chunked_input = split_whitespace_not_in_parantheses(s);
 
-                if let Some(current_part) = current_part.strip_prefix('(') {
-                    if !current_part.is_empty() {
-                        current_parsed = self.eval_keyword(current_part);
-                        println!("current_parsed: {:?}", current_parsed);
-                    }
-                }
-                if let Some(next_part) = next_part.strip_suffix(')') {
-                    if !next_part.is_empty() {
-                        next_parsed = self.eval_part(next_part);
-                        println!("next part recusive: {:?}", next_parsed);
-                    }
-                }
-                match current_parsed.clone() {
-                    ExpressionTypes::Function(temp_func_enum) => {
-                        if let FunctionTypes::InBuildFunction(func) = temp_func_enum {
-                            let mut args = ExpressionTypes::List(vec![]);
-                            
-                            match next_parsed {
-                                ExpressionTypes::List(next_as_list) => {
-                                    args = ExpressionTypes::List(next_as_list);
-                                }
-                                _ => {
-                                    args = ExpressionTypes::List((&[next_parsed]).to_vec());
-                                }
-                            }
-                            let result = if let ExpressionTypes::List(args) = args.clone() {func.1(&args)}else{ExpressionTypes::Nil};
-                            println!("Running Function: {:?} with {:?} getting: {:?}",func.0,args,result);
-                            return result;
-                        } else {
-                            unimplemented!();
-                        }
-                    }
-                    expression_not_function => match expression_not_function {
-                        ExpressionTypes::List(next_as_list) => {
-                            let mut return_list = vec![current_parsed];
-                            return_list.extend_from_slice(&next_as_list);
-                            return ExpressionTypes::List(return_list);
-                        }
-                        _ => {
-                            if current_parsed.is_nil() && next_parsed.is_nil(){
-                                return ExpressionTypes::List(vec![]);
-                            }
-                            else{
-                                return ExpressionTypes::List(vec![current_parsed, next_parsed]);
-                            }
-                        }
-                    },
-                }
-            } else {
-                let mut current_parsed = ExpressionTypes::Nil;
-                let mut next_parsed = ExpressionTypes::Nil;
+        // Split into Primary and Secondary so we can check for function at the beginning
+        let primary_statement = chunked_input[0].clone();
+        let secondary_statements = chunked_input[1..].to_vec();
 
-                if !current_part.is_empty() {
-                    current_parsed = self.eval_keyword(current_part);
-                    println!("current_parsed: {:?}", current_parsed);
-                }
+        println!("Primary: {:?},Secondary: {:?}",primary_statement,secondary_statements);
 
-                if !next_part.is_empty() {
-                    next_parsed = self.eval_part(next_part);
-                    println!("next part recusive: {:?}", next_parsed);
-                }
-                
-                if !current_parsed.is_nil() && !next_parsed.is_nil(){
-                    match next_parsed {
-                        ExpressionTypes::List(next_as_list) => {
-                            let mut return_list = vec![current_parsed];
-                            return_list.extend_from_slice(&next_as_list);
-                            return ExpressionTypes::List(return_list);
-                        }
-                        _ => {
-                            return ExpressionTypes::List(vec![current_parsed, next_parsed]);
-                        }
-                    }
-                }
-                if !current_parsed.is_nil() && next_parsed.is_nil(){
-                    return current_parsed;
-                }
+        // Parse all Secondary as Context
+        let mut context_from_secondary = vec![];
+        for secondary in secondary_statements.clone(){
+            // Error secondary should never be empty
+            if secondary.is_empty(){
+                panic!("Secondary should never be empty");
+            }
 
+            // Starts with '(' then it is a new context and should be viewed anew with recursion
+            if secondary.starts_with('('){
+                let removed_parantheses = secondary.strip_prefix('(').unwrap().strip_suffix(')').unwrap();
+
+                context_from_secondary.push(self.eval_part(removed_parantheses));
+            }
+            // Just a normal part we can parse with eval_keyword
+            else{
+                context_from_secondary.push(self.eval_keyword(&secondary));
             }
         }
-        // String cant be split so this is just a single word
-        else{
-            return self.eval_keyword(s);
+
+        // If our primary Statement is empty return an empty list
+        if primary_statement.is_empty() {
+            return ExpressionTypes::List(vec![]);
+        }
+        // Starts with '(' then it is a new context and should be viewed anew with recursion
+        if primary_statement.starts_with('('){
+            let removed_parantheses = primary_statement.strip_prefix('(').unwrap().strip_suffix(')').unwrap();
+            
+            let primary_parsed = self.eval_part(removed_parantheses);
+
+            match primary_parsed {
+                ExpressionTypes::List(primary_list) => {
+                    let mut result_list = vec![ExpressionTypes::List(primary_list)];
+                    if !secondary_statements.is_empty(){
+                        result_list.push(ExpressionTypes::List(context_from_secondary.clone()));
+                    }
+                    return ExpressionTypes::List(result_list);
+                }
+                primary_not_list => {
+                    let mut result_list = vec![primary_not_list];
+                    if !secondary_statements.is_empty(){
+                        result_list.extend_from_slice(&context_from_secondary);
+                    }
+                    return ExpressionTypes::List(result_list);
+                }
+            }
         }
 
-        ExpressionTypes::Nil
+        let parsed_primary = self.eval_keyword(&primary_statement);
+
+        match parsed_primary {
+            ExpressionTypes::Function(function_enum) => {
+                match function_enum {
+                    // Call the function with the rest as context
+                    FunctionTypes::InBuildFunction(inbuilt) => {
+                        println!("Function: {}, context: {:?}",inbuilt.0,context_from_secondary);
+                        
+                        // Check for context amount
+                        if context_from_secondary.len() != inbuilt.2{
+                            panic!("Function has gotten more or less context than it wants");
+                        }
+
+                        result = inbuilt.1(&context_from_secondary);
+                    },
+                    FunctionTypes::CustomFunction => todo!(),
+                }
+            },
+            ExpressionTypes::Atom(atom) => {
+                let mut arm_result = vec![ExpressionTypes::Atom(atom)];
+                arm_result.extend_from_slice(&context_from_secondary);
+                result = ExpressionTypes::List(arm_result);
+            },
+            ExpressionTypes::Nil => todo!(),
+            ExpressionTypes::List(primary_list) => {
+                let mut arm_result = vec![ExpressionTypes::List(primary_list)];
+                arm_result.extend_from_slice(&context_from_secondary);
+                result = ExpressionTypes::List(arm_result);
+            },
+        }
+        println!("Input: '{:?}' produced: {:?}",s,result);
+        result
     }
 }
 
@@ -212,12 +210,11 @@ pub enum ExpressionTypes {
     Function(FunctionTypes),
     Nil,
 }
-impl ExpressionTypes{
-    fn is_nil(&self) -> bool{
+impl ExpressionTypes {
+    fn is_nil(&self) -> bool {
         matches!(self, ExpressionTypes::Nil)
     }
 }
-
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AtomTypes {
@@ -226,38 +223,36 @@ pub enum AtomTypes {
     Bool(bool),
 }
 
-pub fn split_whitespace_not_in_parantheses(input: &str) -> Vec<String>{
-
+pub fn split_whitespace_not_in_parantheses(input: &str) -> Vec<String> {
     let mut result: Vec<String> = vec![];
     let mut current_substring = String::new();
 
     let mut paranthesis_depth = 0;
 
-    for current_char in input.chars(){
-        
-        println!("char: '{}',depth: {:?},result: {:?}", current_char, paranthesis_depth , result);
+    for current_char in input.chars() {
+        // println!(
+        //     "char: '{}',depth: {:?},result: {:?}",
+        //     current_char, paranthesis_depth, result
+        // );
 
-        if current_char == '('{
+        if current_char == '(' {
             paranthesis_depth += 1;
             current_substring.push(current_char);
-        }
-        else if current_char == ' ' && paranthesis_depth == 0{
+        } else if current_char == ' ' && paranthesis_depth == 0 {
             result.push(current_substring);
             current_substring = String::new();
-        }
-        else if current_char == ')'{
+        } else if current_char == ')' {
             paranthesis_depth -= 1;
             current_substring.push(current_char);
-        }
-        else{
+        } else {
             current_substring.push(current_char);
         }
     }
     result.push(current_substring);
 
-    println!("result: {:?}", result);
+    //println!("result: {:?}", result);
 
-    if paranthesis_depth != 0{
+    if paranthesis_depth != 0 {
         panic!("Parantheses not balanced!")
     }
 

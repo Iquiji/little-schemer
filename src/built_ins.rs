@@ -2,7 +2,7 @@ use crate::{AtomTypes, ExpressionTypes};
 
 /// Takes 1 arg, name: atom?
 pub fn is_atom(input: &[ExpressionTypes]) -> ExpressionTypes {
-    if input.len() != 1{
+    if input.len() != 1 {
         return ExpressionTypes::Atom(AtomTypes::Bool(false));
     }
     match input[0] {
@@ -13,20 +13,40 @@ pub fn is_atom(input: &[ExpressionTypes]) -> ExpressionTypes {
 
 /// Takes 1 arg, name: car
 pub fn car(input: &[ExpressionTypes]) -> ExpressionTypes {
-    if input.len() != 1{
+    if input.len() != 1 {
         return ExpressionTypes::Atom(AtomTypes::Bool(false));
     }
     match &input[0] {
         ExpressionTypes::List(list) => {
-            if list.is_empty(){
+            if list.is_empty() {
                 ExpressionTypes::Nil
-            }else{
+            } else {
                 list[0].clone()
             }
-        },
+        }
         _ => {
             println!("!!!!! Asking for car of Something not List");
             ExpressionTypes::Nil
-        },
+        }
+    }
+}
+
+/// Takes 1 arg, name: cdr
+pub fn cdr(input: &[ExpressionTypes]) -> ExpressionTypes {
+    if input.len() != 1 {
+        return ExpressionTypes::Atom(AtomTypes::Bool(false));
+    }
+    match &input[0] {
+        ExpressionTypes::List(list) => {
+            if list.is_empty() {
+                ExpressionTypes::Nil
+            } else {
+                ExpressionTypes::List(list[1..].to_vec())
+            }
+        }
+        _ => {
+            println!("!!!!! Asking for cdr of Something not List");
+            ExpressionTypes::Nil
+        }
     }
 }
