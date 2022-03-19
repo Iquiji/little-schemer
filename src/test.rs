@@ -280,7 +280,36 @@ fn cons_valid_2() {
 }
 
 #[test]
+fn cons_valid_3() {
+    assert_eval_eq("(cons 'a '())", "('a)");
+}
+
+#[test]
 fn kosta_test() {
     assert_eval_eq("((car ('a 'b)))", "('a)");
     assert_eval_eq("(car ('a 'b))", "'a");
+}
+
+#[test]
+fn cons_car_1() {
+    assert_eval_eq("(cons 'a (car (('b) 'c 'd)))", "('a 'b)")
+}
+
+#[test]
+fn cons_cdr_1() {
+    assert_eval_eq("(cons 'a (cdr (('b) 'c 'd)))", "('a 'c 'd)")
+}
+#[test]
+fn is_null_1() {
+    assert_eval_eq("(null? '())", "#t")
+}
+
+#[test]
+fn is_null_2() {
+    assert_eval_eq("(null? ('a 'b 'c))", "#f")
+}
+
+#[test]
+fn is_null_3() {
+    assert_eval_eq("(null? 'a)", "#f")
 }

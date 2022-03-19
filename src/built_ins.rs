@@ -11,6 +11,17 @@ pub fn is_atom(input: &[ExpressionTypes]) -> ExpressionTypes {
     }
 }
 
+/// Takes 1 arg, name: null?
+pub fn is_null_list(input: &[ExpressionTypes]) -> ExpressionTypes {
+    if input.len() != 1 {
+        return ExpressionTypes::Atom(AtomTypes::Bool(false));
+    }
+    match &input[0] {
+        ExpressionTypes::List(list) => ExpressionTypes::Atom(AtomTypes::Bool(list.is_empty())),
+        _ => ExpressionTypes::Atom(AtomTypes::Bool(false)),
+    }
+}
+
 /// Takes 1 arg, name: car
 pub fn car(input: &[ExpressionTypes]) -> ExpressionTypes {
     if input.len() != 1 {
