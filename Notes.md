@@ -31,3 +31,8 @@ car, cdr, cons, eq? , null?, zero? , addl, subl, number?, and, or, quote, lambda
 
 cons a list
 cons([a , list])
+
+(a (car (b c)) d)
+(a b d)
+
+car (('a 'b 'c) 'b 'd)

@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{sync::Arc, result};
+use std::{result, sync::Arc};
 
 mod built_ins;
 
@@ -23,10 +23,14 @@ impl Interpreter {
     fn new() -> Self {
         Interpreter {
             functions: vec![
-                FunctionTypes::InBuildFunction(("atom?".to_owned(),Arc::new(built_ins::is_atom),1,)),
+                FunctionTypes::InBuildFunction((
+                    "atom?".to_owned(),
+                    Arc::new(built_ins::is_atom),
+                    1,
+                )),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("cdr".to_owned(), Arc::new(built_ins::cdr), 1)),
-                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
+                FunctionTypes::InBuildFunction(("cons".to_owned(), Arc::new(built_ins::cons), 2)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
             ],
@@ -34,8 +38,8 @@ impl Interpreter {
     }
     fn eval_keyword(&self, word: &str) -> ExpressionTypes {
         // Declarition of empty List '()
-        if word == "'()"{
-            return ExpressionTypes::List(vec![])
+        if word == "'()" {
+            return ExpressionTypes::List(vec![]);
         }
 
         // Declaration of atoms 'atom
@@ -70,15 +74,14 @@ impl Interpreter {
                 FunctionTypes::CustomFunction => todo!(),
             }
         }
-        eprintln!("Couldn't parse single word: {}",word);
-        panic!();
+        panic!("Couldn't parse single word: {:?}", word);
         //ExpressionTypes::Nil
     }
 
     // Take part of the String Evaluate it and call self with the rest and so on
     fn eval_part(&self, s: &str) -> ExpressionTypes {
         println!("!Taking!: {}", s);
-        let mut result = ExpressionTypes::Nil;
+        let result;
 
         let chunked_input = split_whitespace_not_in_parantheses(s);
 
@@ -86,24 +89,31 @@ impl Interpreter {
         let primary_statement = chunked_input[0].clone();
         let secondary_statements = chunked_input[1..].to_vec();
 
-        println!("Primary: {:?},Secondary: {:?}",primary_statement,secondary_statements);
+        println!(
+            "Primary: {:?},Secondary: {:?}",
+            primary_statement, secondary_statements
+        );
 
         // Parse all Secondary as Context
         let mut context_from_secondary = vec![];
-        for secondary in secondary_statements.clone(){
+        for secondary in secondary_statements.clone() {
             // Error secondary should never be empty
-            if secondary.is_empty(){
+            if secondary.is_empty() {
                 panic!("Secondary should never be empty");
             }
 
             // Starts with '(' then it is a new context and should be viewed anew with recursion
-            if secondary.starts_with('('){
-                let removed_parantheses = secondary.strip_prefix('(').unwrap().strip_suffix(')').unwrap();
+            if secondary.starts_with('(') {
+                let removed_parantheses = secondary
+                    .strip_prefix('(')
+                    .unwrap()
+                    .strip_suffix(')')
+                    .unwrap();
 
                 context_from_secondary.push(self.eval_part(removed_parantheses));
             }
             // Just a normal part we can parse with eval_keyword
-            else{
+            else {
                 context_from_secondary.push(self.eval_keyword(&secondary));
             }
         }
@@ -112,28 +122,24 @@ impl Interpreter {
         if primary_statement.is_empty() {
             return ExpressionTypes::List(vec![]);
         }
+
         // Starts with '(' then it is a new context and should be viewed anew with recursion
-        if primary_statement.starts_with('('){
-            let removed_parantheses = primary_statement.strip_prefix('(').unwrap().strip_suffix(')').unwrap();
-            
+        if primary_statement.starts_with('(') {
+            let removed_parantheses = primary_statement
+                .strip_prefix('(')
+                .unwrap()
+                .strip_suffix(')')
+                .unwrap();
+
             let primary_parsed = self.eval_part(removed_parantheses);
 
-            match primary_parsed {
-                ExpressionTypes::List(primary_list) => {
-                    let mut result_list = vec![ExpressionTypes::List(primary_list)];
-                    if !secondary_statements.is_empty(){
-                        result_list.push(ExpressionTypes::List(context_from_secondary.clone()));
-                    }
-                    return ExpressionTypes::List(result_list);
-                }
-                primary_not_list => {
-                    let mut result_list = vec![primary_not_list];
-                    if !secondary_statements.is_empty(){
-                        result_list.extend_from_slice(&context_from_secondary);
-                    }
-                    return ExpressionTypes::List(result_list);
-                }
-            }
+            // ('a 'b 'c) 'd >>-> (('a 'b 'c) 'd)
+            // ((car ('a 'b)) 'c 'd) >>-> ('a 'c 'd)
+            // ((car ('a 'b))) >>-> ('a)
+
+            let mut result_list = vec![primary_parsed];
+            result_list.extend(context_from_secondary.clone());
+            return ExpressionTypes::List(result_list);
         }
 
         let parsed_primary = self.eval_keyword(&primary_statement);
@@ -143,31 +149,34 @@ impl Interpreter {
                 match function_enum {
                     // Call the function with the rest as context
                     FunctionTypes::InBuildFunction(inbuilt) => {
-                        println!("Function: {}, context: {:?}",inbuilt.0,context_from_secondary);
-                        
+                        println!(
+                            "Function: {}, context: {:?}",
+                            inbuilt.0, context_from_secondary
+                        );
+
                         // Check for context amount
-                        if context_from_secondary.len() != inbuilt.2{
+                        if context_from_secondary.len() != inbuilt.2 {
                             panic!("Function has gotten more or less context than it wants");
                         }
 
                         result = inbuilt.1(&context_from_secondary);
-                    },
+                    }
                     FunctionTypes::CustomFunction => todo!(),
                 }
-            },
+            }
             ExpressionTypes::Atom(atom) => {
                 let mut arm_result = vec![ExpressionTypes::Atom(atom)];
                 arm_result.extend_from_slice(&context_from_secondary);
                 result = ExpressionTypes::List(arm_result);
-            },
+            }
             ExpressionTypes::Nil => todo!(),
             ExpressionTypes::List(primary_list) => {
                 let mut arm_result = vec![ExpressionTypes::List(primary_list)];
                 arm_result.extend_from_slice(&context_from_secondary);
                 result = ExpressionTypes::List(arm_result);
-            },
+            }
         }
-        println!("Input: '{:?}' produced: {:?}",s,result);
+        println!("Input: '{:?}' produced: {:?}", s, result);
         result
     }
 }
@@ -239,7 +248,9 @@ pub fn split_whitespace_not_in_parantheses(input: &str) -> Vec<String> {
             paranthesis_depth += 1;
             current_substring.push(current_char);
         } else if current_char == ' ' && paranthesis_depth == 0 {
-            result.push(current_substring);
+            if !current_substring.is_empty() {
+                result.push(current_substring);
+            }
             current_substring = String::new();
         } else if current_char == ')' {
             paranthesis_depth -= 1;
@@ -248,6 +259,7 @@ pub fn split_whitespace_not_in_parantheses(input: &str) -> Vec<String> {
             current_substring.push(current_char);
         }
     }
+
     result.push(current_substring);
 
     //println!("result: {:?}", result);
