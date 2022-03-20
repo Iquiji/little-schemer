@@ -1,11 +1,53 @@
 #![allow(unused_imports)]
-use little_schemer::split_whitespace_not_in_parantheses;
 use little_schemer::AtomTypes::{Bool, Integer, String};
 use little_schemer::ExpressionTypes::{Atom, Function, List, Nil};
 use little_schemer::FunctionTypes::{CustomFunction, InBuildFunction};
 use little_schemer::Interpreter;
+use little_schemer::{
+    split_whitespace_not_in_parantheses, split_whitespace_not_in_parantheses_advanced_to_quote,
+};
 mod common;
 use common::assert_eval_eq;
+
+#[test]
+fn quoting_replacement_1() {
+    let programm: &str = "bibendum morbi non quam (nec dui luctus (a b (arbitrary parenthesis level) c)) rutrum nulla";
+
+    let result = split_whitespace_not_in_parantheses_advanced_to_quote(programm);
+
+    assert_eq!(
+        result,
+        vec![
+            "bibendum",
+            "morbi",
+            "non",
+            "quam",
+            "(nec dui luctus (a b (arbitrary parenthesis level) c))",
+            "rutrum",
+            "nulla"
+        ]
+    );
+}
+
+#[test]
+fn quoting_replacement_2() {
+    let programm: &str = "bibendum 'morbi non quam '(nec dui 'luctus ('a b '(arbitrary parenthesis 'level) c)) rutrum nulla";
+
+    let result = split_whitespace_not_in_parantheses_advanced_to_quote(programm);
+
+    assert_eq!(
+        result,
+        vec![
+            "bibendum", 
+            "(quote morbi)", 
+            "non",
+            "quam", 
+            "(quote (nec dui (quote luctus) ((quote a) b (quote (arbitrary parenthesis (quote level))) c)))",
+            "rutrum",
+            "nulla"
+        ]
+    );
+}
 
 #[test]
 fn eval_keyword_is_atom() {
@@ -13,7 +55,7 @@ fn eval_keyword_is_atom() {
 
     let interpreter = Interpreter::new();
 
-    let result = interpreter.eval_keyword(programm);
+    let result = interpreter.eval_keyword(programm, true);
 
     match result {
         Function(func) => match func {

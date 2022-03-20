@@ -1,7 +1,9 @@
 use core::fmt;
 use std::{
+    ascii::AsciiExt,
     fmt::{Debug, Display},
     sync::Arc,
+    vec,
 };
 
 mod built_ins;
@@ -36,21 +38,41 @@ impl Interpreter {
             ],
         }
     }
-    pub fn eval_keyword(&self, word: &str) -> ExpressionTypes {
+    /// "a" -> String("a")
+    /// '"a" -> String("a")
+    /// 42 -> Integer(42)
+    /// a -> Variable? a
+    pub fn eval_keyword(&self, word: &str, allow_variables: bool) -> ExpressionTypes {
         // Declarition of empty List '()
         if word == "'()" {
             return ExpressionTypes::List(vec![]);
         }
 
-        // Declaration of atoms 'atom
+        // Declaration of atoms 'atom -> Symbol(atom)
         if word.starts_with('\'') {
             let temp = &(*word).strip_prefix('\'').unwrap();
 
             if let Ok(int) = temp.parse::<i64>() {
                 return ExpressionTypes::Atom(AtomTypes::Integer(int));
             } else {
-                return ExpressionTypes::Atom(AtomTypes::String(temp.to_string()));
+                return ExpressionTypes::Atom(AtomTypes::Symbol(temp.to_string()));
             }
+        }
+
+        // Double Quotes for String
+        if word.starts_with('"') && word.ends_with('"') {
+            return ExpressionTypes::Atom(AtomTypes::String(
+                word.strip_prefix('"')
+                    .unwrap()
+                    .strip_suffix('"')
+                    .unwrap()
+                    .to_string(),
+            ));
+        }
+
+        // Just number to Integer
+        if let Ok(int) = word.parse::<i64>() {
+            return ExpressionTypes::Atom(AtomTypes::Integer(int));
         }
 
         // True and False
@@ -74,13 +96,53 @@ impl Interpreter {
                 FunctionTypes::CustomFunction => todo!(),
             }
         }
-        panic!("Couldn't parse single word: {:?}", word);
-        //ExpressionTypes::Nil
+        if allow_variables {
+            ExpressionTypes::Variable(word.to_string())
+        } else {
+            ExpressionTypes::Atom(AtomTypes::Symbol(word.to_string()))
+        }
+    }
+    pub fn eval(&mut self, s: &str) -> ExpressionTypes {
+        println!("Eval: {}", s);
+
+        let chunked_input = split_whitespace_not_in_parantheses_advanced_to_quote(s);
+
+        // Split into Primary and Secondary so we can check for function at the beginning
+        let primary_statement = chunked_input[0].clone();
+        let secondary_statements = chunked_input[1..].to_vec();
+
+        println!(
+            "Primary: {:?},Secondary: {:?}",
+            primary_statement, secondary_statements
+        );
+
+        // Quoted Context
+        if primary_statement.starts_with("'(") {
+            let removed_parantheses = primary_statement
+                .strip_prefix("'(")
+                .unwrap()
+                .strip_suffix(')')
+                .unwrap();
+            // Always a List
+            let primary_evaluated = self.list_context_eval(removed_parantheses);
+        }
+        // Procedure Call Context
+        else if primary_statement.starts_with('(') {
+            let removed_parantheses = primary_statement
+                .strip_prefix('(')
+                .unwrap()
+                .strip_suffix(')')
+                .unwrap();
+            let primary_evaluated = self.procedure_context_eval(removed_parantheses);
+        }
+
+        unimplemented!()
     }
 
     // Take part of the String Evaluate it and call self with the rest and so on
     // Always returns List of some Type
     pub fn eval_part(&self, s: &str) -> ExpressionTypes {
+        unimplemented!();
         println!("!Taking!: {}", s);
         let result;
 
@@ -152,7 +214,7 @@ impl Interpreter {
         }
         // We do not have a potential Function call as the primary
         else {
-            let parsed_primary = self.eval_keyword(&primary_statement);
+            let parsed_primary = self.eval_keyword(&primary_statement, true);
             let context_from_secondary =
                 self.secondary_string_vec_to_context_vec(&secondary_statements);
 
@@ -194,21 +256,49 @@ impl Interpreter {
                     arm_result.extend_from_slice(&context_from_secondary);
                     result = ExpressionTypes::List(arm_result);
                 }
+                ExpressionTypes::Variable(_) => todo!(),
             }
         }
         println!("Input: '{:?}' produced: {:?}", s, result);
         result
     }
+    //: we need to differentiate between (obj1 obj2 ...) and (procedure arg ...)
+
     /// Returns ExpressionTypes::List from '(...) or quote (...) context
-    fn list_context_eval() -> ExpressionTypes {
+    /// '("a" "b" "c") -> List([String("a"),String("b"),String("c")])
+    fn list_context_eval(&mut self, input: &str) -> ExpressionTypes {
+        let chunked_input = split_whitespace_not_in_parantheses(input);
+        let mut result_vec = vec![];
+
+        for chunk in chunked_input {
+            // Error secondary should never be empty
+            if chunk.is_empty() {
+                panic!("Chunk should never be empty");
+            }
+
+            // Starts with '(' then it is a new context and should be viewed anew with recursion
+            if chunk.starts_with('(') {
+                let removed_parantheses =
+                    chunk.strip_prefix('(').unwrap().strip_suffix(')').unwrap();
+
+                result_vec.push(self.list_context_eval(removed_parantheses));
+            }
+            // Just a normal part we can parse with eval_keyword
+            else {
+                result_vec.push(self.eval_keyword(&chunk, false));
+            }
+        }
+
         unimplemented!()
     }
-    /// Returns ExpressionTypes from (procedure args...) Context
-    fn procedure_context_eval() -> ExpressionTypes {
+    /// Returns called Procedure Result from (procedure arg...) Context
+    fn procedure_context_eval(&mut self, input: &str) -> ExpressionTypes {
+        let chunked_input = split_whitespace_not_in_parantheses(input);
+
         unimplemented!()
     }
 
-    fn secondary_string_vec_to_context_vec(
+    pub fn secondary_string_vec_to_context_vec(
         &self,
         secondary_vec: &[String],
     ) -> Vec<ExpressionTypes> {
@@ -232,7 +322,7 @@ impl Interpreter {
             }
             // Just a normal part we can parse with eval_keyword
             else {
-                context_from_secondary.push(self.eval_keyword(&secondary));
+                context_from_secondary.push(self.eval_keyword(&secondary, true));
             }
         }
         context_from_secondary
@@ -284,6 +374,7 @@ pub enum ExpressionTypes {
     Atom(AtomTypes),
     List(Vec<ExpressionTypes>),
     Function(FunctionTypes),
+    Variable(String),
     Nil,
 }
 impl ExpressionTypes {
@@ -307,6 +398,7 @@ impl Display for ExpressionTypes {
             }
             ExpressionTypes::Function(to_display) => write!(f, "{}", to_display),
             ExpressionTypes::Nil => write!(f, "~nil~"),
+            ExpressionTypes::Variable(to_display) => write!(f, "{}", to_display),
         }
     }
 }
@@ -316,12 +408,14 @@ pub enum AtomTypes {
     String(String),
     Integer(i64),
     Bool(bool),
+    Symbol(String),
 }
 impl Display for AtomTypes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // write!(f, "({}, {})", self.x, self.y)
         match self {
-            AtomTypes::String(to_display) => write!(f, "'{}", to_display),
+            AtomTypes::Symbol(to_display) => write!(f, r#"'{}"#, to_display),
+            AtomTypes::String(to_display) => write!(f, r#"'"{}""#, to_display),
             AtomTypes::Integer(to_display) => write!(f, "'{}", to_display),
             AtomTypes::Bool(to_display) => write!(f, "'{}", if *to_display { "#t" } else { "f" }),
         }
@@ -354,6 +448,69 @@ pub fn split_whitespace_not_in_parantheses(input: &str) -> Vec<String> {
         } else {
             current_substring.push(current_char);
         }
+    }
+
+    result.push(current_substring);
+
+    //println!("result: {:?}", result);
+
+    if paranthesis_depth != 0 {
+        panic!("Parantheses not balanced!")
+    }
+
+    result
+}
+
+/// 'x -> (quote x) / '(a b c) -> (quote (a b c))
+pub fn split_whitespace_not_in_parantheses_advanced_to_quote(input: &str) -> Vec<String> {
+    let mut result: Vec<String> = vec![];
+    let mut current_substring = String::new();
+
+    let mut paranthesis_depth = 0;
+    let mut quote_stack: Vec<i32> = vec![];
+
+    for current_char in input.chars() {
+        // println!(
+        //     "depth: {:?},char: {:?},stack: {:?}",
+        //     paranthesis_depth, current_char, quote_stack
+        // );
+        if current_char == '\'' {
+            quote_stack.push(paranthesis_depth);
+            current_substring = current_substring + "(quote ";
+        } else if current_char == '(' {
+            paranthesis_depth += 1;
+            current_substring.push(current_char);
+        } else if current_char == ' ' {
+            if !quote_stack.is_empty() && quote_stack[quote_stack.len() - 1] == paranthesis_depth {
+                current_substring.push(')');
+                quote_stack.pop();
+            }
+            if paranthesis_depth == 0 {
+                if !current_substring.is_empty() {
+                    for _ in 0..quote_stack.len() {
+                        current_substring.push(')');
+                        quote_stack.pop();
+                    }
+                    result.push(current_substring);
+                }
+                current_substring = String::new();
+            } else {
+                current_substring.push(current_char);
+            }
+        } else if current_char == ')' {
+            if !quote_stack.is_empty() && quote_stack[quote_stack.len() - 1] == paranthesis_depth {
+                current_substring.push(')');
+                quote_stack.pop();
+            }
+            paranthesis_depth -= 1;
+            current_substring.push(current_char);
+        } else {
+            current_substring.push(current_char);
+        }
+        // println!(
+        //     "depth: {:?},char: {:?},stack: {:?}",
+        //     paranthesis_depth, current_char, quote_stack
+        // );
     }
 
     result.push(current_substring);
