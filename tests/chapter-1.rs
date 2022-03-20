@@ -1,16 +1,11 @@
 #![allow(unused_imports)]
-use super::split_whitespace_not_in_parantheses;
-use super::AtomTypes::{Bool, Integer, String};
-use super::ExpressionTypes::{Atom, Function, List, Nil};
-use super::FunctionTypes::{CustomFunction, InBuildFunction};
-use super::Interpreter;
-
-fn assert_eval_eq(a: &str, b: &str) {
-    let interpreter_a = Interpreter::new();
-    let interpreter_b = Interpreter::new();
-
-    assert_eq!(interpreter_a.eval_part(a), interpreter_b.eval_part(b));
-}
+use little_schemer::split_whitespace_not_in_parantheses;
+use little_schemer::AtomTypes::{Bool, Integer, String};
+use little_schemer::ExpressionTypes::{Atom, Function, List, Nil};
+use little_schemer::FunctionTypes::{CustomFunction, InBuildFunction};
+use little_schemer::Interpreter;
+mod common;
+use common::assert_eval_eq;
 
 #[test]
 fn eval_keyword_is_atom() {
@@ -31,7 +26,7 @@ fn eval_keyword_is_atom() {
 
 #[test]
 fn is_atom_with_atom() {
-    let programm: &str = "atom? 'xd";
+    let programm: &str = "(atom? 'xd)";
 
     let interpreter = Interpreter::new();
 
@@ -41,7 +36,7 @@ fn is_atom_with_atom() {
 }
 #[test]
 fn is_atom_with_list() {
-    let programm: &str = "atom? ('xd)";
+    let programm: &str = "(atom? ('xd))";
 
     let interpreter = Interpreter::new();
 
@@ -80,7 +75,7 @@ fn parse_string_number() {
 
     let result = interpreter.eval_part(programm);
 
-    assert_eq!(result, List(vec![Atom(Integer(1337))]));
+    assert_eq!(result, Atom(Integer(1337)));
 }
 
 #[test]
@@ -134,7 +129,7 @@ fn split_whitespace_not_in_parantheses_test_3() {
 
 #[test]
 fn car_valid_list() {
-    let programm: &str = "car ('a 'b 'c 'd 'e 'f 'g 'h 'i 'j 'k)";
+    let programm: &str = "(car ('a 'b 'c 'd 'e 'f 'g 'h 'i 'j 'k))";
 
     let interpreter = Interpreter::new();
 
@@ -145,7 +140,7 @@ fn car_valid_list() {
 
 #[test]
 fn car_valid_list_2() {
-    let programm: &str = "car (('a 'b 'c) 'x 'y 'z)";
+    let programm: &str = "(car (('a 'b 'c) 'x 'y 'z))";
 
     let interpreter = Interpreter::new();
 
@@ -163,7 +158,7 @@ fn car_valid_list_2() {
 
 #[test]
 fn car_empty_list() {
-    let programm: &str = "car ()";
+    let programm: &str = "(car ())";
 
     let interpreter = Interpreter::new();
 
@@ -196,7 +191,7 @@ fn car_valid_list_3() {
 
 #[test]
 fn car_valid_list_4() {
-    let programm: &str = "car (car ((('hotdogs)) ('and)))";
+    let programm: &str = "(car (car ((('hotdogs)) ('and))))";
 
     let interpreter = Interpreter::new();
 
@@ -227,7 +222,7 @@ fn cdr_valid_list_2() {
 }
 #[test]
 fn cdr_valid_list_3() {
-    let programm: &str = "cdr ('hamburger)";
+    let programm: &str = "(cdr ('hamburger))";
 
     let interpreter = Interpreter::new();
 
@@ -238,7 +233,7 @@ fn cdr_valid_list_3() {
 
 #[test]
 fn cdr_empty_list() {
-    let programm: &str = "cdr ()";
+    let programm: &str = "(cdr ())";
 
     let interpreter = Interpreter::new();
 
@@ -260,7 +255,7 @@ fn car_valid_list_5() {
 
 #[test]
 fn cons_empty_list() {
-    let programm: &str = "cons 'a 'a";
+    let programm: &str = "(cons 'a 'a)";
 
     let interpreter = Interpreter::new();
 
@@ -312,4 +307,13 @@ fn is_null_2() {
 #[test]
 fn is_null_3() {
     assert_eval_eq("(null? 'a)", "#f")
+}
+
+#[test]
+fn display_back_to_data_programm_1() {
+    let interpreted = Interpreter::new()
+        .eval_part("(cons 'a (cdr (('b) 'c 'd)))")
+        .to_string();
+
+    assert_eq!(interpreted, "('a 'c 'd)");
 }

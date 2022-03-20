@@ -1,4 +1,4 @@
-use crate::{AtomTypes, ExpressionTypes};
+use super::{AtomTypes, ExpressionTypes};
 
 /// Takes 1 arg, name: atom?
 pub fn is_atom(input: &[ExpressionTypes]) -> ExpressionTypes {
