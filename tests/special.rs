@@ -20,3 +20,13 @@ fn display_back_to_data_programm_1() {
 
     assert_eq!(interpreted, "(list 'a 'c 'd)");
 }
+
+// The value of (car (list + - * /)) is the addition procedure, just as if procedure were simply the variable +.
+#[test]
+fn car_list_procedures_1() {
+    assert_eval_eq("(car (list atom? null? eq?))", "atom?")
+}
+#[test]
+fn car_list_procedures_2() {
+    assert_eval_eq("((car (list atom? null? eq?)) 'a)", "#t")
+}

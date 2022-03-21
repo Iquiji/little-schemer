@@ -1,6 +1,5 @@
 use core::fmt;
 use std::{
-    ascii::AsciiExt,
     fmt::{Debug, Display},
     sync::Arc,
     vec,
@@ -195,6 +194,7 @@ impl Interpreter {
                 .strip_suffix(')')
                 .unwrap();
 
+            // TODO: Fix This and make this return this executing the secondaries
             self.procedure_context_eval(removed_parantheses)
         }
         // Check for Syntactic
@@ -222,7 +222,7 @@ impl Interpreter {
                         let context_from_secondary =
                             self.secondary_string_vec_to_context_vec(&secondary_statements, true);
                         println!(
-                            "Now Executing Function one layer out: {:?} with args: {:?}",
+                            "Now Executing Function: {:?} with args: {:?}",
                             builtin.0, context_from_secondary
                         );
                         // Check for context amount. If -1 Ignore because it takes an arbitrary amount of Arguments
