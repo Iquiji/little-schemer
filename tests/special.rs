@@ -9,12 +9,14 @@ use little_schemer::{
 mod common;
 use common::assert_eval_eq;
 
-/// TODO: This doesnt work because in quoted and out of quoted are different :(
+/// Done: !TODO: This doesnt work because in quoted and out of quoted are different :(
+/// Fixed by using lists for lists now
+/// TODO: Add more
 #[test]
 fn display_back_to_data_programm_1() {
     let interpreted = Interpreter::new()
         .eval("(cons 'a (cdr '((b) c d)))")
         .to_string();
 
-    assert_eq!(interpreted, "'(a c d)");
+    assert_eq!(interpreted, "(list 'a 'c 'd)");
 }

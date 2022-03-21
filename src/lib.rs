@@ -344,7 +344,7 @@ impl Display for ExpressionTypes {
         match self {
             ExpressionTypes::Atom(to_display) => write!(f, "{}", to_display),
             ExpressionTypes::List(to_display) => {
-                write!(f, "({})", {
+                write!(f, "(list {})", {
                     to_display
                         .iter()
                         .map(|me| me.to_string())
