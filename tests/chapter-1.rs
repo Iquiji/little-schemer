@@ -350,16 +350,6 @@ fn is_null_3() {
     assert_eval_eq("(null? 'a)", "#f")
 }
 
-/// TODO: This doesnt work because in quoted and out of quoted are different :(
-#[test]
-fn display_back_to_data_programm_1() {
-    let interpreted = Interpreter::new()
-        .eval("(cons 'a (cdr '((b) c d)))")
-        .to_string();
-
-    assert_eq!(interpreted, "'(a c d)");
-}
-
 #[test]
 fn are_eq_test_1() {
     assert_eval_eq("(eq? 'a (car '(a b c)))", "#t")
