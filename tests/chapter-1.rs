@@ -70,19 +70,19 @@ fn eval_keyword_is_atom() {
 fn is_atom_with_atom() {
     let programm: &str = "(atom? 'xd)";
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
     assert_eq!(result, Atom(Bool(true)));
 }
 #[test]
 fn is_atom_with_list() {
-    let programm: &str = "(atom? ('xd))";
+    let programm: &str = "(atom? '(xd))";
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
     assert_eq!(result, Atom(Bool(false)));
 }
@@ -90,32 +90,29 @@ fn is_atom_with_list() {
 fn empty_list() {
     let programm: &str = "'()";
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
-    assert_eq!(result, List(vec![List(vec![])]));
+    assert_eq!(result, List(vec![]));
 }
 #[test]
 fn parse_string() {
-    let programm: &str = "'parse_me_baby";
+    let programm: &str = r#""parse_me_baby""#;
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
-    assert_eq!(
-        result,
-        List(vec![Atom(String("parse_me_baby".to_string()))])
-    );
+    assert_eq!(result, Atom(String("parse_me_baby".to_string())));
 }
 #[test]
 fn parse_string_number() {
     let programm: &str = "'1337";
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
     assert_eq!(result, Atom(Integer(1337)));
 }
@@ -171,22 +168,22 @@ fn split_whitespace_not_in_parantheses_test_3() {
 
 #[test]
 fn car_valid_list() {
-    let programm: &str = "(car ('a 'b 'c 'd 'e 'f 'g 'h 'i 'j 'k))";
+    let programm: &str = r#"(car '("a" "b" "c" 'd 'e 'f 'g 'h 'i 'j 'k))"#;
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
     assert_eq!(result, Atom(String("a".to_string())));
 }
 
 #[test]
 fn car_valid_list_2() {
-    let programm: &str = "(car (('a 'b 'c) 'x 'y 'z))";
+    let programm: &str = r#"(car '(("a" "b" "c") 'x 'y 'z))"#;
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
     assert_eq!(
         result,
@@ -200,22 +197,22 @@ fn car_valid_list_2() {
 
 #[test]
 fn car_empty_list() {
-    let programm: &str = "(car ())";
+    let programm: &str = "(car '())";
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
     assert_eq!(result, Nil);
 }
 
 #[test]
 fn parse_list_extended() {
-    let programm: &str = "'() '() '() '()";
+    let programm: &str = "'(() () () ())";
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
     assert_eq!(
         result,
@@ -226,115 +223,117 @@ fn parse_list_extended() {
 #[test]
 fn car_valid_list_3() {
     assert_eval_eq(
-        "(car ((('hotdogs)) ('and) ('pickle) 'relish))",
-        "(('hotdogs))",
+        r#"(car '((("hotdogs")) ("and") ("pickle") "relish"))"#,
+        r#"'(("hotdogs"))"#,
     )
 }
 
 #[test]
 fn car_valid_list_4() {
-    let programm: &str = "(car (car ((('hotdogs)) ('and))))";
+    let programm: &str = r#"(car (car '((("hotdogs")) ("and"))))"#;
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
     assert_eq!(result, List(vec![Atom(String("hotdogs".to_string()))]));
 }
 
 #[test]
 fn cdr_valid_list() {
-    let programm: &str = "(cdr ('a 'b 'c))";
+    let programm: &str = r#"(cdr '(a b c))"#;
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
-    assert_eq!(result, interpreter.eval_part("('b 'c)"));
+    assert_eq!(result, interpreter.eval("'(b c)"));
 }
 #[test]
 fn cdr_valid_list_2() {
-    let programm: &str = "(cdr (('a 'b 'c) 'x 'y 'z))";
+    let programm: &str = "(cdr '(('a 'b 'c) 'x 'y 'z))";
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
-    assert_eq!(result, interpreter.eval_part("('x 'y 'z)"));
+    assert_eq!(result, interpreter.eval("'('x 'y 'z)"));
 }
 #[test]
 fn cdr_valid_list_3() {
-    let programm: &str = "(cdr ('hamburger))";
+    let programm: &str = "(cdr '('hamburger))";
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
-    assert_eq!(result, interpreter.eval_part(""));
+    assert_eq!(result, interpreter.eval("'()"));
 }
 
 #[test]
 fn cdr_empty_list() {
-    let programm: &str = "(cdr ())";
+    let programm: &str = "(cdr '())";
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
     assert_eq!(result, Nil);
 }
 
 #[test]
 fn car_valid_list_5() {
-    let programm: &str = "('a (car ('b 'c)) 'd)";
+    let programm: &str = "((car '(b c)))";
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
-    assert_eq!(result, interpreter.eval_part("('a 'b 'd)"));
+    assert_eq!(result, interpreter.eval("'b"));
 }
 
 #[test]
 fn cons_empty_list() {
     let programm: &str = "(cons 'a 'a)";
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
-    let result = interpreter.eval_part(programm);
+    let result = interpreter.eval(programm);
 
     assert_eq!(result, Nil);
 }
 
 #[test]
 fn cons_valid_1() {
-    assert_eval_eq("(cons 'b ('a 'c))", "('b 'a 'c)");
+    assert_eval_eq("(cons 'b '(a c))", "'(b a c)");
 }
 
 #[test]
 fn cons_valid_2() {
-    assert_eval_eq("(cons ('a 'b ('c)) '())", "(('a 'b ('c)))");
+    assert_eval_eq("(cons '(a b (c)) '())", "'((a b (c)))");
 }
 
 #[test]
 fn cons_valid_3() {
-    assert_eval_eq("(cons 'a '())", "('a)");
+    assert_eval_eq("(cons 'a '())", "'(a)");
 }
 
 #[test]
 fn kosta_test() {
-    assert_eval_eq("((car ('a 'b)))", "('a)");
-    assert_eval_eq("(car ('a 'b))", "'a");
+    // Cannot arbitarily wrap in Parantheses to get list
+    // Would need to use list? for that
+    assert_eval_eq("(list (car '(a b)))", "'(a)");
+    assert_eval_eq("(car '(a b))", "'a");
 }
 
 #[test]
 fn cons_car_1() {
-    assert_eval_eq("(cons 'a (car (('b) 'c 'd)))", "('a 'b)")
+    assert_eval_eq("(cons 'a (car '((b) c d)))", "'(a b)")
 }
 
 #[test]
 fn cons_cdr_1() {
-    assert_eval_eq("(cons 'a (cdr (('b) 'c 'd)))", "('a 'c 'd)")
+    assert_eval_eq("(cons 'a (cdr '((b) c d)))", "'(a c d)")
 }
 #[test]
 fn is_null_1() {
@@ -354,8 +353,8 @@ fn is_null_3() {
 #[test]
 fn display_back_to_data_programm_1() {
     let interpreted = Interpreter::new()
-        .eval_part("(cons 'a (cdr (('b) 'c 'd)))")
+        .eval("(cons 'a (cdr '((b) c d)))")
         .to_string();
 
-    assert_eq!(interpreted, "('a 'c 'd)");
+    assert_eq!(interpreted, "'(a c d)");
 }

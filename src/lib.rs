@@ -30,6 +30,20 @@ impl Interpreter {
                     Arc::new(built_ins::is_null_list),
                     1,
                 )),
+                FunctionTypes::InBuildFunction(("list".to_owned(), Arc::new(built_ins::list), -1)),
+                FunctionTypes::InBuildFunction((
+                    "null?".to_owned(),
+                    Arc::new(built_ins::is_null_list),
+                    1,
+                )),
+                FunctionTypes::InBuildFunction((
+                    "atom?".to_owned(),
+                    Arc::new(built_ins::is_atom),
+                    1,
+                )),
+                FunctionTypes::InBuildFunction(("eq?".to_owned(), Arc::new(built_ins::are_eq), 2)),
+                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
+                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
@@ -49,15 +63,15 @@ impl Interpreter {
         }
 
         // Declaration of atoms 'atom -> Symbol(atom)
-        if word.starts_with('\'') {
-            let temp = &(*word).strip_prefix('\'').unwrap();
+        // if word.starts_with('\'') {
+        //     let temp = &(*word).strip_prefix('\'').unwrap();
 
-            if let Ok(int) = temp.parse::<i64>() {
-                return ExpressionTypes::Atom(AtomTypes::Integer(int));
-            } else {
-                return ExpressionTypes::Atom(AtomTypes::Symbol(temp.to_string()));
-            }
-        }
+        //     if let Ok(int) = temp.parse::<i64>() {
+        //         return ExpressionTypes::Atom(AtomTypes::Integer(int));
+        //     } else {
+        //         return ExpressionTypes::Atom(AtomTypes::Symbol(temp.to_string()));
+        //     }
+        // }
 
         // Double Quotes for String
         if word.starts_with('"') && word.ends_with('"') {
@@ -115,28 +129,30 @@ impl Interpreter {
             "Primary: {:?},Secondary: {:?}",
             primary_statement, secondary_statements
         );
-
-        // Quoted Context
-        if primary_statement.starts_with("'(") {
-            let removed_parantheses = primary_statement
-                .strip_prefix("'(")
-                .unwrap()
-                .strip_suffix(')')
-                .unwrap();
-            // Always a List
-            let primary_evaluated = self.list_context_eval(removed_parantheses);
-        }
         // Procedure Call Context
-        else if primary_statement.starts_with('(') {
+        // Or (quote atom) or (quote (...)) but we check for "syntactic procedures" inside
+        if primary_statement.starts_with('(') {
             let removed_parantheses = primary_statement
                 .strip_prefix('(')
                 .unwrap()
                 .strip_suffix(')')
                 .unwrap();
-            let primary_evaluated = self.procedure_context_eval(removed_parantheses);
-        }
 
-        unimplemented!()
+            let primary_evaluated = self.procedure_context_eval(removed_parantheses);
+
+            if !secondary_statements.is_empty() {
+                panic!("Secondaries with procedure in top level func is not supported yet");
+            }
+            primary_evaluated
+        } else {
+            #[allow(clippy::collapsible_else_if)]
+            if chunked_input.len() == 1 {
+                self.eval_keyword(&chunked_input[0], true)
+            } else {
+                unimplemented!("top level multiple inputs not supported yet?");
+                //self.list_context_eval(s)
+            }
+        }
     }
 
     // Take part of the String Evaluate it and call self with the rest and so on
@@ -190,8 +206,8 @@ impl Interpreter {
                             let func_result = builtin.1(&primary_vec[1..]);
                             println!("resulting in: {:?}", func_result);
                             result_list = vec![func_result];
-                            let context_from_secondary =
-                                self.secondary_string_vec_to_context_vec(&secondary_statements);
+                            let context_from_secondary = self
+                                .secondary_string_vec_to_context_vec(&secondary_statements, true);
                             result_list.extend(context_from_secondary);
                         }
                         FunctionTypes::CustomFunction => todo!(),
@@ -199,7 +215,7 @@ impl Interpreter {
                     _ => {
                         result_list = vec![primary_parsed];
                         let context_from_secondary =
-                            self.secondary_string_vec_to_context_vec(&secondary_statements);
+                            self.secondary_string_vec_to_context_vec(&secondary_statements, false);
                         result_list.extend(context_from_secondary);
                     }
                 }
@@ -216,7 +232,7 @@ impl Interpreter {
         else {
             let parsed_primary = self.eval_keyword(&primary_statement, true);
             let context_from_secondary =
-                self.secondary_string_vec_to_context_vec(&secondary_statements);
+                self.secondary_string_vec_to_context_vec(&secondary_statements, false);
 
             // ('a ('b)) >-> 'a ('b) >-> ('a ('b))
             // (car ('b)) >-> car ('b) >-> 'b
@@ -232,7 +248,7 @@ impl Interpreter {
                             );
 
                             // Check for context amount
-                            if context_from_secondary.len() != inbuilt.2 {
+                            if context_from_secondary.len() as i32 != inbuilt.2 {
                                 panic!("Function has gotten more or less context than it wants");
                             }
 
@@ -262,18 +278,20 @@ impl Interpreter {
         println!("Input: '{:?}' produced: {:?}", s, result);
         result
     }
+
     //: we need to differentiate between (obj1 obj2 ...) and (procedure arg ...)
 
     /// Returns ExpressionTypes::List from '(...) or quote (...) context
     /// '("a" "b" "c") -> List([String("a"),String("b"),String("c")])
-    fn list_context_eval(&mut self, input: &str) -> ExpressionTypes {
+    fn list_context_eval(&mut self, input: &str, allow_function_calls: bool) -> ExpressionTypes {
+        println!("list_context_eval: {:?}", input);
         let chunked_input = split_whitespace_not_in_parantheses(input);
         let mut result_vec = vec![];
 
         for chunk in chunked_input {
             // Error secondary should never be empty
             if chunk.is_empty() {
-                panic!("Chunk should never be empty");
+                return ExpressionTypes::List(vec![]);
             }
 
             // Starts with '(' then it is a new context and should be viewed anew with recursion
@@ -281,7 +299,11 @@ impl Interpreter {
                 let removed_parantheses =
                     chunk.strip_prefix('(').unwrap().strip_suffix(')').unwrap();
 
-                result_vec.push(self.list_context_eval(removed_parantheses));
+                result_vec.push(if allow_function_calls {
+                    self.procedure_context_eval(removed_parantheses)
+                } else {
+                    self.list_context_eval(removed_parantheses, allow_function_calls)
+                });
             }
             // Just a normal part we can parse with eval_keyword
             else {
@@ -289,18 +311,80 @@ impl Interpreter {
             }
         }
 
-        unimplemented!()
+        ExpressionTypes::List(result_vec)
     }
     /// Returns called Procedure Result from (procedure arg...) Context
     fn procedure_context_eval(&mut self, input: &str) -> ExpressionTypes {
-        let chunked_input = split_whitespace_not_in_parantheses(input);
+        println!("procedure_context_eval: {:?}", input);
+        let chunked_input = split_whitespace_not_in_parantheses_advanced_to_quote(input);
 
-        unimplemented!()
+        // Split into Primary and Secondary so we can check for function at the beginning
+        let primary_statement = chunked_input[0].clone();
+        let secondary_statements = chunked_input[1..].to_vec();
+
+        // Check for still in Parantheses for primary
+        if primary_statement.starts_with('(') {
+            let removed_parantheses = primary_statement
+                .strip_prefix('(')
+                .unwrap()
+                .strip_suffix(')')
+                .unwrap();
+
+            self.procedure_context_eval(removed_parantheses)
+        }
+        // Check for Syntactic
+        else if primary_statement == "quote" {
+            let remove_quote = input.strip_prefix("quote ").unwrap();
+            // Starts with '(' then it is a new list instead of atom
+            if remove_quote.starts_with('(') {
+                let removed_parantheses = remove_quote
+                    .strip_prefix('(')
+                    .unwrap()
+                    .strip_suffix(')')
+                    .unwrap();
+
+                self.list_context_eval(removed_parantheses, false)
+            } else {
+                self.eval_keyword(remove_quote, false)
+            }
+        }
+        // Check if Function and error otherwise because we need first to be function!
+        else {
+            let primary_eval = self.eval_keyword(&primary_statement, true);
+            match &primary_eval {
+                ExpressionTypes::Function(func_enum) => match func_enum {
+                    FunctionTypes::InBuildFunction(builtin) => {
+                        let context_from_secondary =
+                            self.secondary_string_vec_to_context_vec(&secondary_statements, true);
+                        println!(
+                            "Now Executing Function one layer out: {:?} with args: {:?}",
+                            builtin.0, context_from_secondary
+                        );
+                        // Check for context amount. If -1 Ignore because it takes an arbitrary amount of Arguments
+                        if context_from_secondary.len() as i32 != builtin.2 && builtin.2 != -1 {
+                            panic!("Function has gotten more or less context than it wants");
+                        }
+                        let func_result = builtin.1(&context_from_secondary);
+                        println!("resulting in: {:?}", func_result);
+
+                        func_result
+                    }
+                    FunctionTypes::CustomFunction => todo!(),
+                },
+                not_function => {
+                    panic!(
+                        "First Item of Procedure call is not a Function!: {:?}",
+                        not_function
+                    );
+                }
+            }
+        }
     }
 
     pub fn secondary_string_vec_to_context_vec(
-        &self,
+        &mut self,
         secondary_vec: &[String],
+        allow_variables: bool,
     ) -> Vec<ExpressionTypes> {
         // Parse all Secondary as Context
         let mut context_from_secondary = vec![];
@@ -317,12 +401,16 @@ impl Interpreter {
                     .unwrap()
                     .strip_suffix(')')
                     .unwrap();
-
-                context_from_secondary.push(self.eval_part(removed_parantheses));
+                if allow_variables {
+                    context_from_secondary.push(self.procedure_context_eval(removed_parantheses));
+                } else {
+                    context_from_secondary
+                        .push(self.list_context_eval(removed_parantheses, allow_variables));
+                }
             }
             // Just a normal part we can parse with eval_keyword
             else {
-                context_from_secondary.push(self.eval_keyword(&secondary, true));
+                context_from_secondary.push(self.eval_keyword(secondary, allow_variables));
             }
         }
         context_from_secondary
@@ -333,7 +421,7 @@ type BuiltInFunction = Arc<fn(&[ExpressionTypes]) -> ExpressionTypes>;
 
 #[derive(Clone)]
 pub enum FunctionTypes {
-    InBuildFunction((String, BuiltInFunction, usize)),
+    InBuildFunction((String, BuiltInFunction, i32)),
     CustomFunction,
 }
 impl PartialEq for FunctionTypes {
@@ -344,6 +432,9 @@ impl PartialEq for FunctionTypes {
         }
     }
 }
+
+impl Eq for FunctionTypes {}
+
 impl Display for FunctionTypes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // write!(f, "({}, {})", self.x, self.y)
@@ -369,7 +460,7 @@ impl fmt::Debug for FunctionTypes {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExpressionTypes {
     Atom(AtomTypes),
     List(Vec<ExpressionTypes>),
@@ -403,7 +494,7 @@ impl Display for ExpressionTypes {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AtomTypes {
     String(String),
     Integer(i64),
@@ -512,7 +603,10 @@ pub fn split_whitespace_not_in_parantheses_advanced_to_quote(input: &str) -> Vec
         //     paranthesis_depth, current_char, quote_stack
         // );
     }
-
+    for _ in 0..quote_stack.len() {
+        current_substring.push(')');
+        quote_stack.pop();
+    }
     result.push(current_substring);
 
     //println!("result: {:?}", result);

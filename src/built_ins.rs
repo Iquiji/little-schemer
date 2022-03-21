@@ -79,3 +79,13 @@ pub fn cons(input: &[ExpressionTypes]) -> ExpressionTypes {
         }
     }
 }
+
+/// Takes x args, name: list
+pub fn list(input: &[ExpressionTypes]) -> ExpressionTypes {
+    ExpressionTypes::List(input.to_vec())
+}
+
+/// Takes 2 args, name: eq?
+pub fn are_eq(input: &[ExpressionTypes]) -> ExpressionTypes {
+    ExpressionTypes::Atom(AtomTypes::Bool(input[0].eq(&input[1])))
+}

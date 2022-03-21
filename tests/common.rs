@@ -6,8 +6,8 @@ use little_schemer::FunctionTypes::{CustomFunction, InBuildFunction};
 use little_schemer::Interpreter;
 
 pub fn assert_eval_eq(a: &str, b: &str) {
-    let interpreter_a = Interpreter::new();
-    let interpreter_b = Interpreter::new();
+    let mut interpreter_a = Interpreter::new();
+    let mut interpreter_b = Interpreter::new();
 
-    assert_eq!(interpreter_a.eval_part(a), interpreter_b.eval_part(b));
+    assert_eq!(interpreter_a.eval(a), interpreter_b.eval(b));
 }
