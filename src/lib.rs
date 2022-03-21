@@ -6,7 +6,7 @@ use std::{
     vec,
 };
 
-mod built_ins;
+pub mod built_ins;
 
 pub struct Interpreter {
     /// (Name,Function,Arg_Count)
@@ -30,18 +30,8 @@ impl Interpreter {
                     Arc::new(built_ins::is_null_list),
                     1,
                 )),
-                FunctionTypes::InBuildFunction(("list".to_owned(), Arc::new(built_ins::list), -1)),
-                FunctionTypes::InBuildFunction((
-                    "null?".to_owned(),
-                    Arc::new(built_ins::is_null_list),
-                    1,
-                )),
-                FunctionTypes::InBuildFunction((
-                    "atom?".to_owned(),
-                    Arc::new(built_ins::is_atom),
-                    1,
-                )),
                 FunctionTypes::InBuildFunction(("eq?".to_owned(), Arc::new(built_ins::are_eq), 2)),
+                FunctionTypes::InBuildFunction(("list".to_owned(), Arc::new(built_ins::list), -1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),

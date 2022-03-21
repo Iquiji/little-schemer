@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
-use little_schemer::AtomTypes::{Bool, Integer, String};
-use little_schemer::ExpressionTypes::{Atom, Function, List, Nil};
-use little_schemer::FunctionTypes::{CustomFunction, InBuildFunction};
+use little_schemer::AtomTypes::{Bool, Integer, String, Symbol};
+use little_schemer::ExpressionTypes::{Atom, Function, List, Nil, Variable};
+use little_schemer::FunctionTypes::{self, CustomFunction, InBuildFunction};
 use little_schemer::Interpreter;
 use little_schemer::{
     split_whitespace_not_in_parantheses, split_whitespace_not_in_parantheses_advanced_to_quote,
@@ -350,6 +350,7 @@ fn is_null_3() {
     assert_eval_eq("(null? 'a)", "#f")
 }
 
+/// TODO: This doesnt work because in quoted and out of quoted are different :(
 #[test]
 fn display_back_to_data_programm_1() {
     let interpreted = Interpreter::new()
@@ -357,4 +358,85 @@ fn display_back_to_data_programm_1() {
         .to_string();
 
     assert_eq!(interpreted, "'(a c d)");
+}
+
+#[test]
+fn are_eq_test_1() {
+    assert_eval_eq("(eq? 'a (car '(a b c)))", "#t")
+}
+
+#[test]
+fn are_eq_test_2() {
+    assert_eval_eq("(eq? 'a (cdr '(a b c)))", "#f")
+}
+
+#[test]
+fn list_test_1() {
+    assert_eval_eq("(list 'a 'b 'c 'd)", "'(a b c d)")
+}
+
+#[test]
+fn list_test_2() {
+    assert_eval_eq("(list (car (list 'a 'c 'd)) 'b 'c 'd)", "'(a b c d)")
+}
+#[test]
+fn list_test_3() {
+    let programm: &str = "(list (car (list 'a 'c 'd)) 'd)";
+
+    let mut interpreter = Interpreter::new();
+
+    let result = interpreter.eval(programm);
+
+    assert_eq!(
+        result,
+        List(vec![
+            Atom(Symbol("a".to_string())),
+            Atom(Symbol("d".to_string()))
+        ])
+    );
+}
+#[test]
+fn list_test_4_anti_test() {
+    let programm: &str = "'(car '(list 'a 'c 'd) 'd)";
+
+    let mut interpreter = Interpreter::new();
+
+    let result = interpreter.eval(programm);
+
+    assert_eq!(
+        result,
+        List(vec![
+            Function(FunctionTypes::InBuildFunction((
+                "car".to_string(),
+                std::sync::Arc::new(little_schemer::built_ins::car),
+                1
+            ))),
+            List(vec![
+                Atom(Symbol("quote".to_string())),
+                List(vec![
+                    Function(FunctionTypes::InBuildFunction((
+                        "list".to_string(),
+                        std::sync::Arc::new(little_schemer::built_ins::list),
+                        -1
+                    ))),
+                    List(vec![
+                        Atom(Symbol("quote".to_string())),
+                        Atom(Symbol("a".to_string()))
+                    ]),
+                    List(vec![
+                        Atom(Symbol("quote".to_string())),
+                        Atom(Symbol("c".to_string()))
+                    ]),
+                    List(vec![
+                        Atom(Symbol("quote".to_string())),
+                        Atom(Symbol("d".to_string()))
+                    ])
+                ])
+            ]),
+            List(vec![
+                Atom(Symbol("quote".to_string())),
+                Atom(Symbol("d".to_string()))
+            ])
+        ])
+    );
 }
