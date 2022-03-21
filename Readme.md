@@ -7,4 +7,4 @@ Currently Work in Progress
 
 ---
 
-for Notes check [Notes.md](Notes.md)
+For my current notes check: [Notes.md](Notes.md)
