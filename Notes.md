@@ -1,3 +1,10 @@
+# Used References:
+https://www.scheme.com/tspl4/start.html
+https://archive.org/details/Schemer/The%20Little%20Schemer/mode/2up
+and a little for reference: https://inst.eecs.berkeley.edu/~cs61a/fa14/assets/interpreter/scheme.html
+
+---
+
 list defined by paranthesis: ( )
 
 list items seperated by spaces: (atom turkey or)
