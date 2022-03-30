@@ -6,6 +6,7 @@ use std::{
 };
 
 pub mod built_ins;
+mod scoping_context;
 
 pub struct Interpreter {
     /// (Name,Function,Arg_Count)
@@ -40,6 +41,57 @@ impl Interpreter {
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
             ],
         }
+    }
+    pub fn tokenizer(&self, word: &str) -> ExpressionTypes{
+        // If it is a Syntactic keyword:
+        if word == "quote"{
+            return ExpressionTypes::Syntactic(SyntacticTypes::Quote);
+        }
+        if word == "let"{
+            return ExpressionTypes::Syntactic(SyntacticTypes::Let);
+        }
+        // if word == "quote"{
+        //     return TokenTypes::Syntactic("quote".to_string());
+        // }
+
+        // Double Quotes for String
+        if word.starts_with('"') && word.ends_with('"') {
+            return ExpressionTypes::Atom(AtomTypes::String(
+                word.strip_prefix('"')
+                    .unwrap()
+                    .strip_suffix('"')
+                    .unwrap()
+                    .to_string(),
+            ));
+        }
+
+        // Just number to Integer
+        if let Ok(int) = word.parse::<i64>() {
+            return ExpressionTypes::Atom(AtomTypes::Integer(int));
+        }
+
+        // True and False
+        if word == "#f" {
+            return ExpressionTypes::Atom(AtomTypes::Bool(false));
+        }
+        if word == "#t" {
+            return ExpressionTypes::Atom(AtomTypes::Bool(true));
+        }
+
+        // Check for Function Names
+        for temp_enum in &self.functions {
+            match temp_enum {
+                FunctionTypes::InBuildFunction(func_tuple) => {
+                    if word == func_tuple.0 {
+                        return ExpressionTypes::Function(FunctionTypes::InBuildFunction(
+                            func_tuple.clone(),
+                        )));
+                    }
+                }
+                FunctionTypes::CustomFunction => todo!(),
+            }
+        }
+        ExpressionTypes::Variable(word.to_string())
     }
     /// "a" -> String("a")
     /// '"a" -> String("a")
@@ -143,6 +195,79 @@ impl Interpreter {
             }
         }
     }
+    pub fn resolve_variable(scope: scoping_context::Context) -> ExpressionTypes {
+        unimplemented!()
+    }
+	// Generiere Syntax Tree vom Input ohne Funktionen auszufuehren
+    pub fn generate_abstract_syntax_tree(&self, input: &str) -> Vec<ExpressionTypes> {
+		let chunked_input = split_whitespace_not_in_parantheses_advanced_to_quote(input);
+		let mut result_vec = vec![];
+		
+		for chunk in chunked_input {
+            // Error cant have "" in chunks
+            if chunk.is_empty() {
+				panic!("cant handle empty string chunk: '{}': '{}'",input,chunk);
+            }
+
+            // Starts with '(' then it is a level deeper and should be looked at anew:
+            if chunk.starts_with('(') {
+                let removed_parantheses =
+                    chunk.strip_prefix('(').unwrap().strip_suffix(')').unwrap();
+				// Eval new layer with level deeper and then push that as a list to result vec:
+                result_vec.push(ExpressionTypes::List(self.generate_abstract_syntax_tree(removed_parantheses)));
+            }
+            // Just a normal part we can parse with eval_keyword
+            else {
+                result_vec.push(self.tokenizer(&chunk));
+            }
+        }
+		
+        return result_vec;
+    }
+
+    fn execute_on_ast(&mut self, input: &[ExpressionTypes]) -> ExpressionTypes {
+        println!("execute_on_ast: {:?}", input);
+        
+        if let ExpressionTypes::Syntactic(syntactic) = input[0]{
+            match syntactic {
+                SyntacticTypes::Let => todo!(),
+                SyntacticTypes::Quote => todo!(),
+            }
+        }else{
+            // First not a syntactic if List execute?...
+            // TODO:
+            match input[0] {
+                ExpressionTypes::Syntactic(_) => unreachable!(),
+                ExpressionTypes::Function(func_enum) => {
+                    match func_enum {
+                        FunctionTypes::InBuildFunction(builtin) => {
+                            let context_from_secondary =
+                                self.secondary_string_vec_to_context_vec(&secondary_statements, true);
+                            println!(
+                                "Now Executing Function: {:?} with args: {:?}",
+                                builtin.0, context_from_secondary
+                            );
+                            // Check for context amount. If -1 Ignore because it takes an arbitrary amount of Arguments
+                            if context_from_secondary.len() as i32 != builtin.2 && builtin.2 != -1 {
+                                panic!("Function has gotten more or less context than it wants");
+                            }
+                            let func_result = builtin.1(&context_from_secondary);
+                            println!("resulting in: {:?}", func_result);
+    
+                            func_result
+                        }
+                        FunctionTypes::CustomFunction => todo!(),
+                    }
+                },
+                ExpressionTypes::Variable(var) => todo!(),
+                _ => panic!("input[0] is not a variable: {:?}",input[0])
+            }
+        }
+
+
+        unimplemented!()
+    }
+
     //: we need to differentiate between (obj1 obj2 ...) and (procedure arg ...)
 
     /// Returns ExpressionTypes::List from '(...) or quote (...) context
@@ -245,6 +370,27 @@ impl Interpreter {
             }
         }
     }
+    pub fn execute_function(&mut self, func_enum: FunctionTypes, secondary_statements: &[String]) {
+        let primary_function = match func_enum {
+            FunctionTypes::InBuildFunction(builtin) => {
+                let context_from_secondary =
+                    self.secondary_string_vec_to_context_vec(secondary_statements, true);
+                println!(
+                    "Now Executing Function: {:?} with args: {:?}",
+                    builtin.0, context_from_secondary
+                );
+                // Check for context amount. If -1 Ignore because it takes an arbitrary amount of Arguments
+                if context_from_secondary.len() as i32 != builtin.2 && builtin.2 != -1 {
+                    panic!("Function has gotten more or less context than it wants");
+                }
+                let func_result = builtin.1(&context_from_secondary);
+                println!("resulting in: {:?}", func_result);
+
+                func_result
+            }
+            FunctionTypes::CustomFunction => todo!(),
+        };
+    }
 
     pub fn secondary_string_vec_to_context_vec(
         &mut self,
@@ -324,9 +470,15 @@ impl fmt::Debug for FunctionTypes {
         }
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SyntacticTypes{
+    Let,
+    Quote
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExpressionTypes {
+    Syntactic(SyntacticTypes),
     Atom(AtomTypes),
     List(Vec<ExpressionTypes>),
     Function(FunctionTypes),
@@ -355,6 +507,7 @@ impl Display for ExpressionTypes {
             ExpressionTypes::Function(to_display) => write!(f, "{}", to_display),
             ExpressionTypes::Nil => write!(f, "~nil~"),
             ExpressionTypes::Variable(to_display) => write!(f, "{}", to_display),
+            ExpressionTypes::Syntactic(to_display) => todo!(),
         }
     }
 }
