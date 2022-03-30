@@ -85,7 +85,7 @@ impl Interpreter {
                     if word == func_tuple.0 {
                         return ExpressionTypes::Function(FunctionTypes::InBuildFunction(
                             func_tuple.clone(),
-                        )));
+                        ));
                     }
                 }
                 FunctionTypes::CustomFunction => todo!(),
@@ -93,6 +93,7 @@ impl Interpreter {
         }
         ExpressionTypes::Variable(word.to_string())
     }
+    
     /// "a" -> String("a")
     /// '"a" -> String("a")
     /// 42 -> Integer(42)
@@ -195,7 +196,8 @@ impl Interpreter {
             }
         }
     }
-    pub fn resolve_variable(scope: scoping_context::Context) -> ExpressionTypes {
+    
+    pub fn resolve_variable(&mut self,var: &str) -> ExpressionTypes {
         unimplemented!()
     }
 	// Generiere Syntax Tree vom Input ohne Funktionen auszufuehren
@@ -225,10 +227,20 @@ impl Interpreter {
         return result_vec;
     }
 
+    // Syntactic
+    //  Let -> Special shit
+    //  Quote -> Return inner
+
+    // Not Syntactic
+    //  Variable -> Look up to Function?
+    //  List -> Execute inner to Function?
+
+    //  Function? -> Execute on all Secondaries 
+
     fn execute_on_ast(&mut self, input: &[ExpressionTypes]) -> ExpressionTypes {
         println!("execute_on_ast: {:?}", input);
         
-        if let ExpressionTypes::Syntactic(syntactic) = input[0]{
+        if let ExpressionTypes::Syntactic(syntactic) = &input[0]{
             match syntactic {
                 SyntacticTypes::Let => todo!(),
                 SyntacticTypes::Quote => todo!(),
@@ -236,36 +248,54 @@ impl Interpreter {
         }else{
             // First not a syntactic if List execute?...
             // TODO:
-            match input[0] {
+            match &input[0] {
                 ExpressionTypes::Syntactic(_) => unreachable!(),
                 ExpressionTypes::Function(func_enum) => {
-                    match func_enum {
-                        FunctionTypes::InBuildFunction(builtin) => {
-                            let context_from_secondary =
-                                self.secondary_string_vec_to_context_vec(&secondary_statements, true);
-                            println!(
-                                "Now Executing Function: {:?} with args: {:?}",
-                                builtin.0, context_from_secondary
-                            );
-                            // Check for context amount. If -1 Ignore because it takes an arbitrary amount of Arguments
-                            if context_from_secondary.len() as i32 != builtin.2 && builtin.2 != -1 {
-                                panic!("Function has gotten more or less context than it wants");
-                            }
-                            let func_result = builtin.1(&context_from_secondary);
-                            println!("resulting in: {:?}", func_result);
-    
-                            func_result
-                        }
-                        FunctionTypes::CustomFunction => todo!(),
+                    // Preprocess Secondaries
+                },
+                ExpressionTypes::Variable(var) => {
+                    match self.resolve_variable(&var){
+                        ExpressionTypes::Function(func_enum) => {
+                            // Preprocess Secondaries
+                        },
+                        not_a_function => panic!("Variable resolved to not a function in primary position; got: {:?}",not_a_function),
                     }
                 },
-                ExpressionTypes::Variable(var) => todo!(),
+                ExpressionTypes::List(list) => {
+                    // Execute Primary List recursively and check output type
+                    match self.execute_on_ast(&list){
+                        ExpressionTypes::Function(func_enum) => {
+                            // Preprocess Secondaries
+                        },
+                        not_a_function => panic!("List resolved to not a function in primary position; got: {:?}",not_a_function),
+                    }
+                },
                 _ => panic!("input[0] is not a variable: {:?}",input[0])
             }
         }
 
 
         unimplemented!()
+    }
+
+    fn execute_function_pre_parsed_secondaries(&mut self,func: FunctionTypes,secondaries: &[ExpressionTypes]) -> ExpressionTypes{
+        match func {
+            FunctionTypes::InBuildFunction(builtin) => {
+                println!(
+                    "execute_function_pre_parsed_secondaries Function: {:?} with args: {:?}",
+                    builtin.0, secondaries
+                );
+                // Check for context amount. If -1 Ignore because it takes an arbitrary amount of Arguments
+                if secondaries.len() as i32 != builtin.2 && builtin.2 != -1 {
+                    panic!("Function has gotten more or less context than it wants");
+                }
+                let func_result = builtin.1(&secondaries);
+                println!("resulting in: {:?}", func_result);
+
+                return func_result;
+            }
+            FunctionTypes::CustomFunction => todo!(),
+        }
     }
 
     //: we need to differentiate between (obj1 obj2 ...) and (procedure arg ...)
