@@ -237,26 +237,58 @@ impl Interpreter {
 
     //  Function? -> Execute on all Secondaries 
 
-    fn execute_on_ast(&mut self, input: &[ExpressionTypes]) -> ExpressionTypes {
+    pub fn execute_on_ast(&mut self, input: &[ExpressionTypes]) -> ExpressionTypes {
         println!("execute_on_ast: {:?}", input);
         
         if let ExpressionTypes::Syntactic(syntactic) = &input[0]{
+            // Syntactic
+            //  Let -> Special shit
+            //  Quote -> Return inner
             match syntactic {
                 SyntacticTypes::Let => todo!(),
-                SyntacticTypes::Quote => todo!(),
+                SyntacticTypes::Quote => {
+                    return input[1].clone();
+                },
             }
         }else{
-            // First not a syntactic if List execute?...
-            // TODO:
+            // Not Syntactic
+            //  Variable -> Look up to Function?
+            //  List -> Execute inner to Function?
+
+            //  Function? -> Execute on all Secondaries
             match &input[0] {
                 ExpressionTypes::Syntactic(_) => unreachable!(),
                 ExpressionTypes::Function(func_enum) => {
+                    let mut secondaries_proccessed_vec = vec![];
                     // Preprocess Secondaries
+                    for secondary_item in &input[1..]{
+                        match secondary_item{
+                            ExpressionTypes::List(list) => {
+                                secondaries_proccessed_vec.push(self.execute_on_ast(list));
+                            },
+                            not_list => {
+                                secondaries_proccessed_vec.push(not_list.clone());
+                            }
+                        }
+                    }
+                    return self.execute_function_pre_parsed_secondaries(func_enum.clone(), &secondaries_proccessed_vec);
                 },
                 ExpressionTypes::Variable(var) => {
                     match self.resolve_variable(&var){
                         ExpressionTypes::Function(func_enum) => {
+                            let mut secondaries_proccessed_vec = vec![];
                             // Preprocess Secondaries
+                            for secondary_item in &input[1..]{
+                                match secondary_item{
+                                    ExpressionTypes::List(list) => {
+                                        secondaries_proccessed_vec.push(self.execute_on_ast(list));
+                                    },
+                                    not_list => {
+                                        secondaries_proccessed_vec.push(not_list.clone());
+                                    }
+                                }
+                            }
+                            return self.execute_function_pre_parsed_secondaries(func_enum.clone(), &secondaries_proccessed_vec);
                         },
                         not_a_function => panic!("Variable resolved to not a function in primary position; got: {:?}",not_a_function),
                     }
@@ -265,17 +297,26 @@ impl Interpreter {
                     // Execute Primary List recursively and check output type
                     match self.execute_on_ast(&list){
                         ExpressionTypes::Function(func_enum) => {
+                            let mut secondaries_proccessed_vec = vec![];
                             // Preprocess Secondaries
+                            for secondary_item in &input[1..]{
+                                match secondary_item{
+                                    ExpressionTypes::List(list) => {
+                                        secondaries_proccessed_vec.push(self.execute_on_ast(list));
+                                    },
+                                    not_list => {
+                                        secondaries_proccessed_vec.push(not_list.clone());
+                                    }
+                                }
+                            }
+                            return self.execute_function_pre_parsed_secondaries(func_enum.clone(), &secondaries_proccessed_vec);
                         },
                         not_a_function => panic!("List resolved to not a function in primary position; got: {:?}",not_a_function),
                     }
                 },
-                _ => panic!("input[0] is not a variable: {:?}",input[0])
+                _ => panic!("input[0] is not a variable or resolvable to a function: {:?}",input[0])
             }
         }
-
-
-        unimplemented!()
     }
 
     fn execute_function_pre_parsed_secondaries(&mut self,func: FunctionTypes,secondaries: &[ExpressionTypes]) -> ExpressionTypes{

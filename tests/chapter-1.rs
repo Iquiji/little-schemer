@@ -7,7 +7,7 @@ use little_schemer::{
     split_whitespace_not_in_parantheses, split_whitespace_not_in_parantheses_advanced_to_quote,
 };
 mod common;
-use common::assert_eval_eq;
+use common::{assert_eval_eq, assert_eval_eq_ast_precompute};
 
 #[test]
 fn quoting_replacement_1() {
@@ -222,7 +222,7 @@ fn parse_list_extended() {
 
 #[test]
 fn car_valid_list_3() {
-    assert_eval_eq(
+    assert_eval_eq_ast_precompute(
         r#"(car '((("hotdogs")) ("and") ("pickle") "relish"))"#,
         r#"'(("hotdogs"))"#,
     )
