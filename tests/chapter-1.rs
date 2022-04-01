@@ -274,7 +274,13 @@ fn cons_empty_list() {
 
     let result = execute_form_with_ast(programm);
 
-    assert_eq!(result, Nil);
+    assert_eq!(
+        result,
+        List(vec![
+            Atom(Symbol("a".to_string())),
+            Atom(Symbol("a".to_string()))
+        ])
+    );
 }
 
 #[test]
@@ -387,4 +393,9 @@ fn list_test_4_anti_test() {
             List(vec![Syntactic(Quote), Atom(Symbol("d".to_string()))])
         ])
     );
+}
+
+#[test]
+fn atom_test_x() {
+    assert_eval_eq_ast_precompute("(atom? (quote ()))", "'#f")
 }

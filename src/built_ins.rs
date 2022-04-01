@@ -74,8 +74,8 @@ pub fn cons(input: &[ExpressionTypes]) -> ExpressionTypes {
             ExpressionTypes::List(result)
         }
         _ => {
-            println!("!!!!! Asking for cons to Something not List");
-            ExpressionTypes::Nil
+            eprintln!("!!!!! Asking for cons to Something not List");
+            ExpressionTypes::List(vec![input[0].clone(), input[1].clone()])
         }
     }
 }

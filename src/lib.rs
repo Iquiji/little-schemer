@@ -5,12 +5,15 @@ use std::{
     vec,
 };
 
+use scoping_context::Scope;
+
 pub mod built_ins;
 mod scoping_context;
 
 pub struct Interpreter {
     /// (Name,Function,Arg_Count)
     functions: Vec<FunctionTypes>,
+    scope_stack: Vec<Scope>,
 }
 impl Interpreter {
     #[allow(clippy::new_without_default)]
@@ -40,6 +43,7 @@ impl Interpreter {
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
             ],
+            scope_stack: vec![Scope::new()],
         }
     }
     pub fn tokenizer(&self, word: &str) -> ExpressionTypes {
@@ -94,8 +98,16 @@ impl Interpreter {
         ExpressionTypes::Variable(word.to_string())
     }
     /// Resolve Variable from interpreter scope stack
-    pub fn resolve_variable(&mut self, _var: &str) -> ExpressionTypes {
-        unimplemented!()
+    pub fn resolve_variable(&mut self, var: &str) -> ExpressionTypes {
+        println!("current stack: '{:?}'", self.scope_stack);
+
+        for scope in self.scope_stack.iter().rev() {
+            if let Some(lookuped) = scope.get(var) {
+                println!("{:?} resolved to: {:?}", var, lookuped);
+                return lookuped;
+            }
+        }
+        panic!("Could not resolve Variable: {:?}", var);
     }
     /// Generate Syntax Tree without Executing Functions or Doing any checking
     pub fn generate_abstract_syntax_tree(&self, input: &str) -> Vec<ExpressionTypes> {
@@ -130,6 +142,20 @@ impl Interpreter {
         result_vec
     }
 
+    // TODO:
+    // Proposal: execute_or_return
+    // returning execution if in list and else returning value
+    fn execute_on_list_lookup_on_variable_return_else(
+        &mut self,
+        input: ExpressionTypes,
+    ) -> ExpressionTypes {
+        match &input {
+            ExpressionTypes::List(list) => self.execute_on_ast(list),
+            ExpressionTypes::Variable(var) => self.resolve_variable(var),
+            _ => input,
+        }
+    }
+
     // Syntactic
     //  Let -> Special shit
     //  Quote -> Return inner
@@ -149,7 +175,53 @@ impl Interpreter {
             //  Let -> Special shit
             //  Quote -> Return inner
             match syntactic {
-                SyntacticTypes::Let => todo!(),
+                SyntacticTypes::Let => {
+                    // let ([var expr]...) body1 body2... body-n
+                    // Return result of body-n
+                    let mut new_scope = Scope::new();
+                    match &input[1] {
+                        ExpressionTypes::List(binding_list) => {
+                            for binding in binding_list {
+                                match binding {
+                                    ExpressionTypes::List(binding_pair) => {
+                                        if binding_pair.len() != 2 {
+                                            panic!("binding pair need to have a length of 2! instead found: {:?}",binding_pair);
+                                        }
+                                        if let ExpressionTypes::Variable(variable_string) = &binding_pair[0]{
+                                            new_scope.insert_single((variable_string.clone(),self.execute_on_list_lookup_on_variable_return_else(binding_pair[1].clone())));
+                                        }else{
+                                            panic!("first element of binding pair needs to be a variable! instead found: {:?}",binding_pair[0])
+                                        }
+                                    },
+                                    _ => panic!(
+                                        "binding in binding_list of let needs to be a list! instead found: {:?}",
+                                        input[1]
+                                    ),
+                                }
+                            }
+                        }
+                        _ => panic!(
+                            "first argument of let needs to be a list! instead found: {:?}",
+                            input[1]
+                        ),
+                    }
+                    // Push onto scope stack
+                    println!("Pushing '{:?}' onto the scope stack", new_scope);
+                    self.scope_stack.push(new_scope);
+                    // Then execute expr until last element
+                    for expr in &input[2..(input.len() - 1)] {
+                        self.execute_on_list_lookup_on_variable_return_else(expr.clone());
+                    }
+                    // last element will be returned
+                    return_result = self.execute_on_list_lookup_on_variable_return_else(
+                        input[input.len() - 1].clone(),
+                    );
+
+                    println!(
+                        "Popping '{:?}' from the scope stack",
+                        self.scope_stack.pop()
+                    );
+                }
                 SyntacticTypes::Quote => {
                     // The symbol hello must be quoted in order to prevent Scheme from treating hello as a variable.
                     // https://www.scheme.com/tspl4/start.html#./start:h2
@@ -189,14 +261,11 @@ impl Interpreter {
                     let mut secondaries_proccessed_vec = vec![];
                     // Preprocess Secondaries
                     for secondary_item in &input[1..] {
-                        match secondary_item {
-                            ExpressionTypes::List(list) => {
-                                secondaries_proccessed_vec.push(self.execute_on_ast(list));
-                            }
-                            not_list => {
-                                secondaries_proccessed_vec.push(not_list.clone());
-                            }
-                        }
+                        secondaries_proccessed_vec.push(
+                            self.execute_on_list_lookup_on_variable_return_else(
+                                secondary_item.clone(),
+                            ),
+                        );
                     }
                     return_result = self.execute_function_pre_parsed_secondaries(
                         func_enum.clone(),
@@ -210,14 +279,11 @@ impl Interpreter {
                             let mut secondaries_proccessed_vec = vec![];
                             // Preprocess Secondaries
                             for secondary_item in &input[1..] {
-                                match secondary_item {
-                                    ExpressionTypes::List(list) => {
-                                        secondaries_proccessed_vec.push(self.execute_on_ast(list));
-                                    }
-                                    not_list => {
-                                        secondaries_proccessed_vec.push(not_list.clone());
-                                    }
-                                }
+                                secondaries_proccessed_vec.push(
+                                    self.execute_on_list_lookup_on_variable_return_else(
+                                        secondary_item.clone(),
+                                    ),
+                                );
                             }
                             return_result = self.execute_function_pre_parsed_secondaries(
                                 func_enum,
@@ -238,14 +304,11 @@ impl Interpreter {
                             let mut secondaries_proccessed_vec = vec![];
                             // Preprocess Secondaries
                             for secondary_item in &input[1..] {
-                                match secondary_item {
-                                    ExpressionTypes::List(list) => {
-                                        secondaries_proccessed_vec.push(self.execute_on_ast(list));
-                                    }
-                                    not_list => {
-                                        secondaries_proccessed_vec.push(not_list.clone());
-                                    }
-                                }
+                                secondaries_proccessed_vec.push(
+                                    self.execute_on_list_lookup_on_variable_return_else(
+                                        secondary_item.clone(),
+                                    ),
+                                );
                             }
                             return_result = self.execute_function_pre_parsed_secondaries(
                                 func_enum,
@@ -265,7 +328,7 @@ impl Interpreter {
                 ),
             }
         }
-        print!("execute_on_ast resulting in: {:?}", return_result);
+        println!("execute_on_ast resulting in: {:?}", return_result);
         return_result
     }
 
@@ -441,6 +504,8 @@ pub fn split_whitespace_not_in_parantheses(input: &str) -> Vec<String> {
 
 /// 'x -> (quote x) / '(a b c) -> (quote (a b c))
 pub fn split_whitespace_not_in_parantheses_advanced_to_quote(input: &str) -> Vec<String> {
+    let input = input.replace("\n", " ").replace("  ", " ");
+
     let mut result: Vec<String> = vec![];
     let mut current_substring = String::new();
 
