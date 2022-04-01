@@ -1,16 +1,10 @@
 #![allow(unused_imports)]
+#![allow(dead_code)]
 use little_schemer::AtomTypes::{Bool, Integer, String};
 use little_schemer::ExpressionTypes::{Atom, Function, List, Nil};
 use little_schemer::FunctionTypes::{CustomFunction, InBuildFunction};
 use little_schemer::Interpreter;
 use little_schemer::{split_whitespace_not_in_parantheses, ExpressionTypes};
-
-pub fn assert_eval_eq(a: &str, b: &str) {
-    let mut interpreter_a = Interpreter::new();
-    let mut interpreter_b = Interpreter::new();
-
-    assert_eq!(interpreter_a.eval(a), interpreter_b.eval(b));
-}
 
 pub fn assert_eval_eq_ast_precompute(a: &str, b: &str) {
     let result_a = execute_form_with_ast(a);

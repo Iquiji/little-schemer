@@ -93,114 +93,11 @@ impl Interpreter {
         }
         ExpressionTypes::Variable(word.to_string())
     }
-
-    /// "a" -> String("a")
-    /// '"a" -> String("a")
-    /// 42 -> Integer(42)
-    /// a -> Variable? a
-    pub fn eval_keyword(&self, word: &str, allow_variables: bool) -> ExpressionTypes {
-        // Declarition of empty List '()
-        if word == "'()" {
-            return ExpressionTypes::List(vec![]);
-        }
-
-        // Declaration of atoms 'atom -> Symbol(atom)
-        // if word.starts_with('\'') {
-        //     let temp = &(*word).strip_prefix('\'').unwrap();
-
-        //     if let Ok(int) = temp.parse::<i64>() {
-        //         return ExpressionTypes::Atom(AtomTypes::Integer(int));
-        //     } else {
-        //         return ExpressionTypes::Atom(AtomTypes::Symbol(temp.to_string()));
-        //     }
-        // }
-
-        // Double Quotes for String
-        if word.starts_with('"') && word.ends_with('"') {
-            return ExpressionTypes::Atom(AtomTypes::String(
-                word.strip_prefix('"')
-                    .unwrap()
-                    .strip_suffix('"')
-                    .unwrap()
-                    .to_string(),
-            ));
-        }
-
-        // Just number to Integer
-        if let Ok(int) = word.parse::<i64>() {
-            return ExpressionTypes::Atom(AtomTypes::Integer(int));
-        }
-
-        // True and False
-        if word == "#f" {
-            return ExpressionTypes::Atom(AtomTypes::Bool(false));
-        }
-        if word == "#t" {
-            return ExpressionTypes::Atom(AtomTypes::Bool(true));
-        }
-
-        // Check for Function Names
-        for temp_enum in &self.functions {
-            match temp_enum {
-                FunctionTypes::InBuildFunction(func_tuple) => {
-                    if word == func_tuple.0 {
-                        return ExpressionTypes::Function(FunctionTypes::InBuildFunction(
-                            func_tuple.clone(),
-                        ));
-                    }
-                }
-                FunctionTypes::CustomFunction => todo!(),
-            }
-        }
-        if allow_variables {
-            ExpressionTypes::Variable(word.to_string())
-        } else {
-            ExpressionTypes::Atom(AtomTypes::Symbol(word.to_string()))
-        }
-    }
-    pub fn eval(&mut self, s: &str) -> ExpressionTypes {
-        println!("Eval: {}", s);
-
-        let chunked_input = split_whitespace_not_in_parantheses_advanced_to_quote(s);
-
-        // Split into Primary and Secondary so we can check for function at the beginning
-        let primary_statement = chunked_input[0].clone();
-        let secondary_statements = chunked_input[1..].to_vec();
-
-        println!(
-            "Primary: {:?},Secondary: {:?}",
-            primary_statement, secondary_statements
-        );
-        // Procedure Call Context
-        // Or (quote atom) or (quote (...)) but we check for "syntactic procedures" inside
-        if primary_statement.starts_with('(') {
-            let removed_parantheses = primary_statement
-                .strip_prefix('(')
-                .unwrap()
-                .strip_suffix(')')
-                .unwrap();
-
-            let primary_evaluated = self.procedure_context_eval(removed_parantheses);
-
-            if !secondary_statements.is_empty() {
-                panic!("Secondaries with procedure in top level func is not supported yet");
-            }
-            primary_evaluated
-        } else {
-            #[allow(clippy::collapsible_else_if)]
-            if chunked_input.len() == 1 {
-                self.eval_keyword(&chunked_input[0], true)
-            } else {
-                unimplemented!("top level multiple inputs not supported yet?");
-                //self.list_context_eval(s)
-            }
-        }
-    }
-
+    /// Resolve Variable from interpreter scope stack
     pub fn resolve_variable(&mut self, _var: &str) -> ExpressionTypes {
         unimplemented!()
     }
-    // Generiere Syntax Tree vom Input ohne Funktionen auszufuehren
+    /// Generate Syntax Tree without Executing Functions or Doing any checking
     pub fn generate_abstract_syntax_tree(&self, input: &str) -> Vec<ExpressionTypes> {
         let chunked_input = split_whitespace_not_in_parantheses_advanced_to_quote(input);
         let mut result_vec = vec![];
@@ -287,6 +184,7 @@ impl Interpreter {
             //  Function? -> Execute on all Secondaries
             match &input[0] {
                 ExpressionTypes::Syntactic(_) => unreachable!(),
+                //  Function? -> Execute on all Secondaries
                 ExpressionTypes::Function(func_enum) => {
                     let mut secondaries_proccessed_vec = vec![];
                     // Preprocess Secondaries
@@ -305,6 +203,7 @@ impl Interpreter {
                         &secondaries_proccessed_vec,
                     );
                 }
+                //  Variable -> Look up to Function?
                 ExpressionTypes::Variable(var) => {
                     match self.resolve_variable(var) {
                         ExpressionTypes::Function(func_enum) => {
@@ -331,6 +230,7 @@ impl Interpreter {
                         ),
                     }
                 }
+                //  List -> Execute inner to Function?
                 ExpressionTypes::List(list) => {
                     // Execute Primary List recursively and check output type
                     match self.execute_on_ast(list) {
@@ -358,6 +258,7 @@ impl Interpreter {
                         ),
                     }
                 }
+                // Cant Execute on not Function?
                 _ => panic!(
                     "input[0] is not a variable or resolvable to a function: {:?}",
                     input[0]
@@ -390,165 +291,6 @@ impl Interpreter {
             }
             FunctionTypes::CustomFunction => todo!(),
         }
-    }
-
-    //: we need to differentiate between (obj1 obj2 ...) and (procedure arg ...)
-
-    /// Returns ExpressionTypes::List from '(...) or quote (...) context
-    /// '("a" "b" "c") -> List([String("a"),String("b"),String("c")])
-    fn list_context_eval(&mut self, input: &str, allow_function_calls: bool) -> ExpressionTypes {
-        println!("list_context_eval: {:?}", input);
-        let chunked_input = split_whitespace_not_in_parantheses(input);
-        let mut result_vec = vec![];
-
-        for chunk in chunked_input {
-            // Error secondary should never be empty
-            if chunk.is_empty() {
-                return ExpressionTypes::List(vec![]);
-            }
-
-            // Starts with '(' then it is a new context and should be viewed anew with recursion
-            if chunk.starts_with('(') {
-                let removed_parantheses =
-                    chunk.strip_prefix('(').unwrap().strip_suffix(')').unwrap();
-
-                result_vec.push(if allow_function_calls {
-                    self.procedure_context_eval(removed_parantheses)
-                } else {
-                    self.list_context_eval(removed_parantheses, allow_function_calls)
-                });
-            }
-            // Just a normal part we can parse with eval_keyword
-            else {
-                result_vec.push(self.eval_keyword(&chunk, false));
-            }
-        }
-
-        ExpressionTypes::List(result_vec)
-    }
-    /// Returns called Procedure Result from (procedure arg...) Context
-    fn procedure_context_eval(&mut self, input: &str) -> ExpressionTypes {
-        println!("procedure_context_eval: {:?}", input);
-        let chunked_input = split_whitespace_not_in_parantheses_advanced_to_quote(input);
-
-        // Split into Primary and Secondary so we can check for function at the beginning
-        let primary_statement = chunked_input[0].clone();
-        let secondary_statements = chunked_input[1..].to_vec();
-
-        // Check for still in Parantheses for primary
-        if primary_statement.starts_with('(') {
-            let removed_parantheses = primary_statement
-                .strip_prefix('(')
-                .unwrap()
-                .strip_suffix(')')
-                .unwrap();
-
-            // TODO: Fix This and make this return this executing the secondaries
-            self.procedure_context_eval(removed_parantheses)
-        }
-        // Check for Syntactic
-        else if primary_statement == "quote" {
-            let remove_quote = input.strip_prefix("quote ").unwrap();
-            // Starts with '(' then it is a new list instead of atom
-            if remove_quote.starts_with('(') {
-                let removed_parantheses = remove_quote
-                    .strip_prefix('(')
-                    .unwrap()
-                    .strip_suffix(')')
-                    .unwrap();
-
-                self.list_context_eval(removed_parantheses, false)
-            } else {
-                self.eval_keyword(remove_quote, false)
-            }
-        }
-        // Check if Function and error otherwise because we need first to be function!
-        else {
-            let primary_eval = self.eval_keyword(&primary_statement, true);
-            match &primary_eval {
-                ExpressionTypes::Function(func_enum) => match func_enum {
-                    FunctionTypes::InBuildFunction(builtin) => {
-                        let context_from_secondary =
-                            self.secondary_string_vec_to_context_vec(&secondary_statements, true);
-                        println!(
-                            "Now Executing Function: {:?} with args: {:?}",
-                            builtin.0, context_from_secondary
-                        );
-                        // Check for context amount. If -1 Ignore because it takes an arbitrary amount of Arguments
-                        if context_from_secondary.len() as i32 != builtin.2 && builtin.2 != -1 {
-                            panic!("Function has gotten more or less context than it wants");
-                        }
-                        let func_result = builtin.1(&context_from_secondary);
-                        println!("resulting in: {:?}", func_result);
-
-                        func_result
-                    }
-                    FunctionTypes::CustomFunction => todo!(),
-                },
-                not_function => {
-                    panic!(
-                        "First Item of Procedure call is not a Function!: {:?}",
-                        not_function
-                    );
-                }
-            }
-        }
-    }
-    pub fn execute_function(&mut self, func_enum: FunctionTypes, secondary_statements: &[String]) {
-        let _primary_function = match func_enum {
-            FunctionTypes::InBuildFunction(builtin) => {
-                let context_from_secondary =
-                    self.secondary_string_vec_to_context_vec(secondary_statements, true);
-                println!(
-                    "Now Executing Function: {:?} with args: {:?}",
-                    builtin.0, context_from_secondary
-                );
-                // Check for context amount. If -1 Ignore because it takes an arbitrary amount of Arguments
-                if context_from_secondary.len() as i32 != builtin.2 && builtin.2 != -1 {
-                    panic!("Function has gotten more or less context than it wants");
-                }
-                let func_result = builtin.1(&context_from_secondary);
-                println!("resulting in: {:?}", func_result);
-
-                func_result
-            }
-            FunctionTypes::CustomFunction => todo!(),
-        };
-    }
-
-    pub fn secondary_string_vec_to_context_vec(
-        &mut self,
-        secondary_vec: &[String],
-        allow_variables: bool,
-    ) -> Vec<ExpressionTypes> {
-        // Parse all Secondary as Context
-        let mut context_from_secondary = vec![];
-        for secondary in secondary_vec {
-            // Error secondary should never be empty
-            if secondary.is_empty() {
-                panic!("Secondary should never be empty");
-            }
-
-            // Starts with '(' then it is a new context and should be viewed anew with recursion
-            if secondary.starts_with('(') {
-                let removed_parantheses = secondary
-                    .strip_prefix('(')
-                    .unwrap()
-                    .strip_suffix(')')
-                    .unwrap();
-                if allow_variables {
-                    context_from_secondary.push(self.procedure_context_eval(removed_parantheses));
-                } else {
-                    context_from_secondary
-                        .push(self.list_context_eval(removed_parantheses, allow_variables));
-                }
-            }
-            // Just a normal part we can parse with eval_keyword
-            else {
-                context_from_secondary.push(self.eval_keyword(secondary, allow_variables));
-            }
-        }
-        context_from_secondary
     }
 }
 

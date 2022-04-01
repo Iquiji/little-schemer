@@ -9,7 +9,7 @@ use little_schemer::{
 };
 mod common;
 use common::{
-    assert_eval_eq, assert_eval_eq_ast_precompute, ast_precompute_execute, execute_form_with_ast,
+    assert_eval_eq_ast_precompute, ast_precompute_execute, execute_form_with_ast,
     execute_programm_with_ast,
 };
 
@@ -18,9 +18,7 @@ use common::{
 /// TODO: Add more
 #[test]
 fn display_back_to_data_programm_1() {
-    let interpreted = Interpreter::new()
-        .eval("(cons 'a (cdr '((b) c d)))")
-        .to_string();
+    let interpreted = execute_form_with_ast("(cons 'a (cdr '((b) c d)))").to_string();
 
     assert_eq!(interpreted, "(list 'a 'c 'd)");
 }

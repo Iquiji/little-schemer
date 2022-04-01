@@ -9,7 +9,7 @@ use little_schemer::{
 };
 mod common;
 use common::{
-    assert_eval_eq, assert_eval_eq_ast_precompute, ast_precompute_execute, execute_form_with_ast,
+    assert_eval_eq_ast_precompute, ast_precompute_execute, execute_form_with_ast,
     execute_programm_with_ast,
 };
 
@@ -279,69 +279,69 @@ fn cons_empty_list() {
 
 #[test]
 fn cons_valid_1() {
-    assert_eval_eq("(cons 'b '(a c))", "'(b a c)");
+    assert_eval_eq_ast_precompute("(cons 'b '(a c))", "'(b a c)");
 }
 
 #[test]
 fn cons_valid_2() {
-    assert_eval_eq("(cons '(a b (c)) '())", "'((a b (c)))");
+    assert_eval_eq_ast_precompute("(cons '(a b (c)) '())", "'((a b (c)))");
 }
 
 #[test]
 fn cons_valid_3() {
-    assert_eval_eq("(cons 'a '())", "'(a)");
+    assert_eval_eq_ast_precompute("(cons 'a '())", "'(a)");
 }
 
 #[test]
 fn kosta_test() {
     // Cannot arbitarily wrap in Parantheses to get list
     // Would need to use list? for that
-    assert_eval_eq("(list (car '(a b)))", "'(a)");
-    assert_eval_eq("(car '(a b))", "'a");
+    assert_eval_eq_ast_precompute("(list (car '(a b)))", "'(a)");
+    assert_eval_eq_ast_precompute("(car '(a b))", "'a");
 }
 
 #[test]
 fn cons_car_1() {
-    assert_eval_eq("(cons 'a (car '((b) c d)))", "'(a b)")
+    assert_eval_eq_ast_precompute("(cons 'a (car '((b) c d)))", "'(a b)")
 }
 
 #[test]
 fn cons_cdr_1() {
-    assert_eval_eq("(cons 'a (cdr '((b) c d)))", "'(a c d)")
+    assert_eval_eq_ast_precompute("(cons 'a (cdr '((b) c d)))", "'(a c d)")
 }
 #[test]
 fn is_null_1() {
-    assert_eval_eq("(null? '())", "#t")
+    assert_eval_eq_ast_precompute("(null? '())", "'#t")
 }
 
 #[test]
 fn is_null_2() {
-    assert_eval_eq("(null? ('a 'b 'c))", "#f")
+    assert_eval_eq_ast_precompute("(null? '(a b c))", "'#f")
 }
 
 #[test]
 fn is_null_3() {
-    assert_eval_eq("(null? 'a)", "#f")
+    assert_eval_eq_ast_precompute("(null? 'a)", "'#f");
 }
 
 #[test]
 fn are_eq_test_1() {
-    assert_eval_eq("(eq? 'a (car '(a b c)))", "#t")
+    assert_eval_eq_ast_precompute("(eq? 'a (car '(a b c)))", "'#t")
 }
 
 #[test]
 fn are_eq_test_2() {
-    assert_eval_eq("(eq? 'a (cdr '(a b c)))", "#f")
+    assert_eval_eq_ast_precompute("(eq? 'a (cdr '(a b c)))", "'#f")
 }
 
 #[test]
 fn list_test_1() {
-    assert_eval_eq("(list 'a 'b 'c 'd)", "'(a b c d)")
+    assert_eval_eq_ast_precompute("(list 'a 'b 'c 'd)", "'(a b c d)")
 }
 
 #[test]
 fn list_test_2() {
-    assert_eval_eq("(list (car (list 'a 'c 'd)) 'b 'c 'd)", "'(a b c d)")
+    assert_eval_eq_ast_precompute("(list (car (list 'a 'c 'd)) 'b 'c 'd)", "'(a b c d)")
 }
 #[test]
 fn list_test_3() {
