@@ -8,6 +8,7 @@ use std::{
 use scoping_context::Scope;
 
 pub mod built_ins;
+pub mod helper_functions;
 mod scoping_context;
 
 pub struct Interpreter {
@@ -99,7 +100,7 @@ impl Interpreter {
                         ));
                     }
                 }
-                FunctionTypes::CustomFunction => todo!(),
+                FunctionTypes::CustomFunction(_) => todo!(),
             }
         }
         ExpressionTypes::Variable(word.to_string())
@@ -118,7 +119,8 @@ impl Interpreter {
     }
     /// Generate Syntax Tree without Executing Functions or Doing any checking
     pub fn generate_abstract_syntax_tree(&self, input: &str) -> Vec<ExpressionTypes> {
-        let chunked_input = split_whitespace_not_in_parantheses_advanced_to_quote(input);
+        let chunked_input =
+            helper_functions::split_whitespace_not_in_parantheses_advanced_to_quote(input);
         let mut result_vec = vec![];
 
         for chunk in chunked_input {
@@ -254,7 +256,28 @@ impl Interpreter {
                     return_result = replace_recursive(input[1].clone());
                     //return input[1].clone();
                 }
-                SyntacticTypes::Lambda => todo!(),
+                SyntacticTypes::Lambda => {
+                    // Generate CustomFunction
+                    // CustomFunction: Vec<Vars> Vec<Bodies>
+                    // (lambda (var ...) body1 body2 ... body-n) -> body-n
+                    let mut needed_vars = vec![];
+                    if let ExpressionTypes::List(var_list) = &input[1] {
+                        for var in var_list {
+                            if let ExpressionTypes::Variable(var) = var {
+                                needed_vars.push(var.clone());
+                            } else {
+                                panic!("All items in a var list of a lambda need to be variables! Instead found: {:?}",var);
+                            }
+                        }
+                        return_result = ExpressionTypes::Function(FunctionTypes::CustomFunction((
+                            needed_vars,
+                            input[2..].to_vec(),
+                        )));
+                    } else {
+                        // TODO:
+                        panic!("First argument for lambda needs to be a list for now");
+                    }
+                }
             }
         } else {
             // Not Syntactic
@@ -360,7 +383,7 @@ impl Interpreter {
 
                 func_result
             }
-            FunctionTypes::CustomFunction => todo!(),
+            FunctionTypes::CustomFunction(custom_function) => {}
         }
     }
 }
@@ -370,7 +393,7 @@ type BuiltInFunction = Arc<fn(&[ExpressionTypes]) -> ExpressionTypes>;
 #[derive(Clone)]
 pub enum FunctionTypes {
     InBuildFunction((String, BuiltInFunction, i32)),
-    CustomFunction,
+    CustomFunction((Vec<String>, Vec<ExpressionTypes>)),
 }
 impl PartialEq for FunctionTypes {
     fn eq(&self, other: &Self) -> bool {
@@ -388,7 +411,7 @@ impl Display for FunctionTypes {
         // write!(f, "({}, {})", self.x, self.y)
         match self {
             FunctionTypes::InBuildFunction(to_display) => write!(f, "{}", to_display.0),
-            FunctionTypes::CustomFunction => todo!(),
+            FunctionTypes::CustomFunction(_) => todo!(),
         }
     }
 }
@@ -403,7 +426,7 @@ impl fmt::Debug for FunctionTypes {
                     builtin.0, builtin.2
                 )
             }
-            FunctionTypes::CustomFunction => write!(f, "Unimplemented custom Function"),
+            FunctionTypes::CustomFunction(_) => write!(f, "Unimplemented custom Function"),
         }
     }
 }
@@ -467,111 +490,4 @@ impl Display for AtomTypes {
             AtomTypes::Bool(to_display) => write!(f, "'{}", if *to_display { "#t" } else { "f" }),
         }
     }
-}
-
-pub fn split_whitespace_not_in_parantheses(input: &str) -> Vec<String> {
-    let mut result: Vec<String> = vec![];
-    let mut current_substring = String::new();
-
-    let mut paranthesis_depth = 0;
-
-    for current_char in input.chars() {
-        // println!(
-        //     "char: '{}',depth: {:?},result: {:?}",
-        //     current_char, paranthesis_depth, result
-        // );
-
-        if current_char == '(' {
-            paranthesis_depth += 1;
-            current_substring.push(current_char);
-        } else if current_char == ' ' && paranthesis_depth == 0 {
-            if !current_substring.is_empty() {
-                result.push(current_substring);
-            }
-            current_substring = String::new();
-        } else if current_char == ')' {
-            paranthesis_depth -= 1;
-            current_substring.push(current_char);
-        } else {
-            current_substring.push(current_char);
-        }
-    }
-
-    result.push(current_substring);
-
-    //println!("result: {:?}", result);
-
-    if paranthesis_depth != 0 {
-        panic!("Parantheses not balanced!")
-    }
-
-    result
-}
-
-/// 'x -> (quote x) / '(a b c) -> (quote (a b c))
-pub fn split_whitespace_not_in_parantheses_advanced_to_quote(input: &str) -> Vec<String> {
-    let input = input.replace("\n", " ").replace("  ", " ");
-
-    let mut result: Vec<String> = vec![];
-    let mut current_substring = String::new();
-
-    let mut paranthesis_depth = 0;
-    let mut quote_stack: Vec<i32> = vec![];
-
-    for current_char in input.chars() {
-        // println!(
-        //     "depth: {:?},char: {:?},stack: {:?}",
-        //     paranthesis_depth, current_char, quote_stack
-        // );
-        if current_char == '\'' {
-            quote_stack.push(paranthesis_depth);
-            current_substring += "(quote ";
-        } else if current_char == '(' {
-            paranthesis_depth += 1;
-            current_substring.push(current_char);
-        } else if current_char == ' ' {
-            if !quote_stack.is_empty() && quote_stack[quote_stack.len() - 1] == paranthesis_depth {
-                current_substring.push(')');
-                quote_stack.pop();
-            }
-            if paranthesis_depth == 0 {
-                if !current_substring.is_empty() {
-                    for _ in 0..quote_stack.len() {
-                        current_substring.push(')');
-                        quote_stack.pop();
-                    }
-                    result.push(current_substring);
-                }
-                current_substring = String::new();
-            } else {
-                current_substring.push(current_char);
-            }
-        } else if current_char == ')' {
-            if !quote_stack.is_empty() && quote_stack[quote_stack.len() - 1] == paranthesis_depth {
-                current_substring.push(')');
-                quote_stack.pop();
-            }
-            paranthesis_depth -= 1;
-            current_substring.push(current_char);
-        } else {
-            current_substring.push(current_char);
-        }
-        // println!(
-        //     "depth: {:?},char: {:?},stack: {:?}",
-        //     paranthesis_depth, current_char, quote_stack
-        // );
-    }
-    for _ in 0..quote_stack.len() {
-        current_substring.push(')');
-        quote_stack.pop();
-    }
-    result.push(current_substring);
-
-    //println!("result: {:?}", result);
-
-    if paranthesis_depth != 0 {
-        panic!("Parantheses not balanced!")
-    }
-
-    result
 }

@@ -1,10 +1,12 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
+use little_schemer::helper_functions::{
+    split_whitespace_not_in_parantheses, split_whitespace_not_in_parantheses_advanced_to_quote,
+};
 use little_schemer::AtomTypes::{Bool, Integer, String};
-use little_schemer::ExpressionTypes::{Atom, Function, List, Nil};
+use little_schemer::ExpressionTypes::{self, Atom, Function, List, Nil};
 use little_schemer::FunctionTypes::{CustomFunction, InBuildFunction};
 use little_schemer::Interpreter;
-use little_schemer::{split_whitespace_not_in_parantheses, ExpressionTypes};
 
 pub fn assert_eval_eq_ast_precompute(a: &str, b: &str) {
     let result_a = execute_form_with_ast(a);
