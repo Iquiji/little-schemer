@@ -1,13 +1,17 @@
 #![allow(unused_imports)]
 use little_schemer::AtomTypes::{Bool, Integer, String, Symbol};
-use little_schemer::ExpressionTypes::{Atom, Function, List, Nil, Variable};
+use little_schemer::ExpressionTypes::{Atom, Function, List, Nil, Syntactic, Variable};
 use little_schemer::FunctionTypes::{self, CustomFunction, InBuildFunction};
 use little_schemer::Interpreter;
+use little_schemer::SyntacticTypes::{Let, Quote};
 use little_schemer::{
     split_whitespace_not_in_parantheses, split_whitespace_not_in_parantheses_advanced_to_quote,
 };
 mod common;
-use common::{assert_eval_eq, assert_eval_eq_ast_precompute};
+use common::{
+    assert_eval_eq, assert_eval_eq_ast_precompute, ast_precompute_execute, execute_form_with_ast,
+    execute_programm_with_ast,
+};
 
 #[test]
 fn quoting_replacement_1() {
@@ -55,7 +59,7 @@ fn eval_keyword_is_atom() {
 
     let interpreter = Interpreter::new();
 
-    let result = interpreter.eval_keyword(programm, true);
+    let result = interpreter.tokenizer(programm);
 
     match result {
         Function(func) => match func {
@@ -68,11 +72,9 @@ fn eval_keyword_is_atom() {
 
 #[test]
 fn is_atom_with_atom() {
-    let programm: &str = "(atom? 'xd)";
+    let programm: &str = r#"(atom? 'xd)"#;
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(result, Atom(Bool(true)));
 }
@@ -80,9 +82,7 @@ fn is_atom_with_atom() {
 fn is_atom_with_list() {
     let programm: &str = "(atom? '(xd))";
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(result, Atom(Bool(false)));
 }
@@ -90,19 +90,15 @@ fn is_atom_with_list() {
 fn empty_list() {
     let programm: &str = "'()";
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(result, List(vec![]));
 }
 #[test]
 fn parse_string() {
-    let programm: &str = r#""parse_me_baby""#;
+    let programm: &str = r#"'"parse_me_baby""#;
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(result, Atom(String("parse_me_baby".to_string())));
 }
@@ -110,9 +106,7 @@ fn parse_string() {
 fn parse_string_number() {
     let programm: &str = "'1337";
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(result, Atom(Integer(1337)));
 }
@@ -170,9 +164,7 @@ fn split_whitespace_not_in_parantheses_test_3() {
 fn car_valid_list() {
     let programm: &str = r#"(car '("a" "b" "c" 'd 'e 'f 'g 'h 'i 'j 'k))"#;
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(result, Atom(String("a".to_string())));
 }
@@ -181,9 +173,7 @@ fn car_valid_list() {
 fn car_valid_list_2() {
     let programm: &str = r#"(car '(("a" "b" "c") 'x 'y 'z))"#;
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(
         result,
@@ -199,9 +189,7 @@ fn car_valid_list_2() {
 fn car_empty_list() {
     let programm: &str = "(car '())";
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(result, Nil);
 }
@@ -210,9 +198,7 @@ fn car_empty_list() {
 fn parse_list_extended() {
     let programm: &str = "'(() () () ())";
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(
         result,
@@ -232,9 +218,7 @@ fn car_valid_list_3() {
 fn car_valid_list_4() {
     let programm: &str = r#"(car (car '((("hotdogs")) ("and"))))"#;
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(result, List(vec![Atom(String("hotdogs".to_string()))]));
 }
@@ -243,62 +227,52 @@ fn car_valid_list_4() {
 fn cdr_valid_list() {
     let programm: &str = r#"(cdr '(a b c))"#;
 
-    let mut interpreter = Interpreter::new();
+    let result = execute_form_with_ast(programm);
 
-    let result = interpreter.eval(programm);
-
-    assert_eq!(result, interpreter.eval("'(b c)"));
+    assert_eq!(result, execute_form_with_ast("'(b c)"));
 }
 #[test]
 fn cdr_valid_list_2() {
     let programm: &str = "(cdr '(('a 'b 'c) 'x 'y 'z))";
 
-    let mut interpreter = Interpreter::new();
+    let result = execute_form_with_ast(programm);
 
-    let result = interpreter.eval(programm);
-
-    assert_eq!(result, interpreter.eval("'('x 'y 'z)"));
+    assert_eq!(result, execute_form_with_ast("'('x 'y 'z)"));
 }
 #[test]
 fn cdr_valid_list_3() {
     let programm: &str = "(cdr '('hamburger))";
 
-    let mut interpreter = Interpreter::new();
+    let result = execute_form_with_ast(programm);
 
-    let result = interpreter.eval(programm);
-
-    assert_eq!(result, interpreter.eval("'()"));
+    assert_eq!(result, execute_form_with_ast("'()"));
 }
 
 #[test]
 fn cdr_empty_list() {
     let programm: &str = "(cdr '())";
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(result, Nil);
 }
 
+/// Cant work because cant execute on 'b
 #[test]
+#[should_panic]
 fn car_valid_list_5() {
     let programm: &str = "((car '(b c)))";
 
-    let mut interpreter = Interpreter::new();
+    let result = execute_form_with_ast(programm);
 
-    let result = interpreter.eval(programm);
-
-    assert_eq!(result, interpreter.eval("'b"));
+    assert_eq!(result, execute_form_with_ast("'b"));
 }
 
 #[test]
 fn cons_empty_list() {
     let programm: &str = "(cons 'a 'a)";
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(result, Nil);
 }
@@ -373,9 +347,7 @@ fn list_test_2() {
 fn list_test_3() {
     let programm: &str = "(list (car (list 'a 'c 'd)) 'd)";
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(
         result,
@@ -389,9 +361,7 @@ fn list_test_3() {
 fn list_test_4_anti_test() {
     let programm: &str = "'(car '(list 'a 'c 'd) 'd)";
 
-    let mut interpreter = Interpreter::new();
-
-    let result = interpreter.eval(programm);
+    let result = execute_form_with_ast(programm);
 
     assert_eq!(
         result,
@@ -402,31 +372,19 @@ fn list_test_4_anti_test() {
                 1
             ))),
             List(vec![
-                Atom(Symbol("quote".to_string())),
+                Syntactic(Quote),
                 List(vec![
                     Function(FunctionTypes::InBuildFunction((
                         "list".to_string(),
                         std::sync::Arc::new(little_schemer::built_ins::list),
                         -1
                     ))),
-                    List(vec![
-                        Atom(Symbol("quote".to_string())),
-                        Atom(Symbol("a".to_string()))
-                    ]),
-                    List(vec![
-                        Atom(Symbol("quote".to_string())),
-                        Atom(Symbol("c".to_string()))
-                    ]),
-                    List(vec![
-                        Atom(Symbol("quote".to_string())),
-                        Atom(Symbol("d".to_string()))
-                    ])
+                    List(vec![Syntactic(Quote), Atom(Symbol("a".to_string()))]),
+                    List(vec![Syntactic(Quote), Atom(Symbol("c".to_string()))]),
+                    List(vec![Syntactic(Quote), Atom(Symbol("d".to_string()))])
                 ])
             ]),
-            List(vec![
-                Atom(Symbol("quote".to_string())),
-                Atom(Symbol("d".to_string()))
-            ])
+            List(vec![Syntactic(Quote), Atom(Symbol("d".to_string()))])
         ])
     );
 }

@@ -5,6 +5,9 @@ https://archive.org/details/Schemer/The%20Little%20Schemer/mode/2up
 
 and a little for reference: https://inst.eecs.berkeley.edu/~cs61a/fa14/assets/interpreter/scheme.html
 
+<program> is zero or more <form>
+<form> is <definition> or <expression> 
+
 ---
 
 list defined by paranthesis: ( )

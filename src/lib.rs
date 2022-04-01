@@ -42,12 +42,12 @@ impl Interpreter {
             ],
         }
     }
-    pub fn tokenizer(&self, word: &str) -> ExpressionTypes{
+    pub fn tokenizer(&self, word: &str) -> ExpressionTypes {
         // If it is a Syntactic keyword:
-        if word == "quote"{
+        if word == "quote" {
             return ExpressionTypes::Syntactic(SyntacticTypes::Quote);
         }
-        if word == "let"{
+        if word == "let" {
             return ExpressionTypes::Syntactic(SyntacticTypes::Let);
         }
         // if word == "quote"{
@@ -93,7 +93,7 @@ impl Interpreter {
         }
         ExpressionTypes::Variable(word.to_string())
     }
-    
+
     /// "a" -> String("a")
     /// '"a" -> String("a")
     /// 42 -> Integer(42)
@@ -196,35 +196,41 @@ impl Interpreter {
             }
         }
     }
-    
-    pub fn resolve_variable(&mut self,var: &str) -> ExpressionTypes {
+
+    pub fn resolve_variable(&mut self, _var: &str) -> ExpressionTypes {
         unimplemented!()
     }
-	// Generiere Syntax Tree vom Input ohne Funktionen auszufuehren
+    // Generiere Syntax Tree vom Input ohne Funktionen auszufuehren
     pub fn generate_abstract_syntax_tree(&self, input: &str) -> Vec<ExpressionTypes> {
-		let chunked_input = split_whitespace_not_in_parantheses_advanced_to_quote(input);
-		let mut result_vec = vec![];
-		
-		for chunk in chunked_input {
+        let chunked_input = split_whitespace_not_in_parantheses_advanced_to_quote(input);
+        let mut result_vec = vec![];
+
+        for chunk in chunked_input {
             // Error cant have "" in chunks
             if chunk.is_empty() {
-				panic!("cant handle empty string chunk: '{}': '{}'",input,chunk);
+                eprintln!(
+                    "cant handle empty string chunk: '{}': '{}' \n skipping for now",
+                    input, chunk
+                );
+                continue;
             }
 
             // Starts with '(' then it is a level deeper and should be looked at anew:
             if chunk.starts_with('(') {
                 let removed_parantheses =
                     chunk.strip_prefix('(').unwrap().strip_suffix(')').unwrap();
-				// Eval new layer with level deeper and then push that as a list to result vec:
-                result_vec.push(ExpressionTypes::List(self.generate_abstract_syntax_tree(removed_parantheses)));
+                // Eval new layer with level deeper and then push that as a list to result vec:
+                result_vec.push(ExpressionTypes::List(
+                    self.generate_abstract_syntax_tree(removed_parantheses),
+                ));
             }
             // Just a normal part we can parse with eval_keyword
             else {
                 result_vec.push(self.tokenizer(&chunk));
             }
         }
-		
-        return result_vec;
+        // println!("generated ast: {:#?}", result_vec);
+        result_vec
     }
 
     // Syntactic
@@ -235,22 +241,45 @@ impl Interpreter {
     //  Variable -> Look up to Function?
     //  List -> Execute inner to Function?
 
-    //  Function? -> Execute on all Secondaries 
+    //  Function? -> Execute on all Secondaries
 
     pub fn execute_on_ast(&mut self, input: &[ExpressionTypes]) -> ExpressionTypes {
         println!("execute_on_ast: {:?}", input);
-        
-        if let ExpressionTypes::Syntactic(syntactic) = &input[0]{
+        let return_result: ExpressionTypes;
+
+        if let ExpressionTypes::Syntactic(syntactic) = &input[0] {
             // Syntactic
             //  Let -> Special shit
             //  Quote -> Return inner
             match syntactic {
                 SyntacticTypes::Let => todo!(),
                 SyntacticTypes::Quote => {
-                    return input[1].clone();
-                },
+                    // The symbol hello must be quoted in order to prevent Scheme from treating hello as a variable.
+                    // https://www.scheme.com/tspl4/start.html#./start:h2
+                    fn replace_recursive(input: ExpressionTypes) -> ExpressionTypes {
+                        match input.clone() {
+                            ExpressionTypes::List(quoted_list) => {
+                                let mut new_list_replaced_var_with_symbols = vec![];
+
+                                for item in quoted_list {
+                                    new_list_replaced_var_with_symbols
+                                        .push(replace_recursive(item));
+                                }
+
+                                ExpressionTypes::List(new_list_replaced_var_with_symbols)
+                            }
+                            ExpressionTypes::Variable(var) => {
+                                ExpressionTypes::Atom(AtomTypes::Symbol(var))
+                            }
+                            _ => input,
+                        }
+                    }
+                    // TODO: symbols instead of variables in quoted context
+                    return_result = replace_recursive(input[1].clone());
+                    //return input[1].clone();
+                }
             }
-        }else{
+        } else {
             // Not Syntactic
             //  Variable -> Look up to Function?
             //  List -> Execute inner to Function?
@@ -261,65 +290,89 @@ impl Interpreter {
                 ExpressionTypes::Function(func_enum) => {
                     let mut secondaries_proccessed_vec = vec![];
                     // Preprocess Secondaries
-                    for secondary_item in &input[1..]{
-                        match secondary_item{
+                    for secondary_item in &input[1..] {
+                        match secondary_item {
                             ExpressionTypes::List(list) => {
                                 secondaries_proccessed_vec.push(self.execute_on_ast(list));
-                            },
+                            }
                             not_list => {
                                 secondaries_proccessed_vec.push(not_list.clone());
                             }
                         }
                     }
-                    return self.execute_function_pre_parsed_secondaries(func_enum.clone(), &secondaries_proccessed_vec);
-                },
+                    return_result = self.execute_function_pre_parsed_secondaries(
+                        func_enum.clone(),
+                        &secondaries_proccessed_vec,
+                    );
+                }
                 ExpressionTypes::Variable(var) => {
-                    match self.resolve_variable(&var){
+                    match self.resolve_variable(var) {
                         ExpressionTypes::Function(func_enum) => {
                             let mut secondaries_proccessed_vec = vec![];
                             // Preprocess Secondaries
-                            for secondary_item in &input[1..]{
-                                match secondary_item{
+                            for secondary_item in &input[1..] {
+                                match secondary_item {
                                     ExpressionTypes::List(list) => {
                                         secondaries_proccessed_vec.push(self.execute_on_ast(list));
-                                    },
+                                    }
                                     not_list => {
                                         secondaries_proccessed_vec.push(not_list.clone());
                                     }
                                 }
                             }
-                            return self.execute_function_pre_parsed_secondaries(func_enum.clone(), &secondaries_proccessed_vec);
-                        },
-                        not_a_function => panic!("Variable resolved to not a function in primary position; got: {:?}",not_a_function),
+                            return_result = self.execute_function_pre_parsed_secondaries(
+                                func_enum,
+                                &secondaries_proccessed_vec,
+                            );
+                        }
+                        not_a_function => panic!(
+                            "Variable resolved to not a function in primary position; got: {:?}",
+                            not_a_function
+                        ),
                     }
-                },
+                }
                 ExpressionTypes::List(list) => {
                     // Execute Primary List recursively and check output type
-                    match self.execute_on_ast(&list){
+                    match self.execute_on_ast(list) {
                         ExpressionTypes::Function(func_enum) => {
                             let mut secondaries_proccessed_vec = vec![];
                             // Preprocess Secondaries
-                            for secondary_item in &input[1..]{
-                                match secondary_item{
+                            for secondary_item in &input[1..] {
+                                match secondary_item {
                                     ExpressionTypes::List(list) => {
                                         secondaries_proccessed_vec.push(self.execute_on_ast(list));
-                                    },
+                                    }
                                     not_list => {
                                         secondaries_proccessed_vec.push(not_list.clone());
                                     }
                                 }
                             }
-                            return self.execute_function_pre_parsed_secondaries(func_enum.clone(), &secondaries_proccessed_vec);
-                        },
-                        not_a_function => panic!("List resolved to not a function in primary position; got: {:?}",not_a_function),
+                            return_result = self.execute_function_pre_parsed_secondaries(
+                                func_enum,
+                                &secondaries_proccessed_vec,
+                            );
+                        }
+                        not_a_function => panic!(
+                            "List resolved to not a function in primary position; got: {:?}",
+                            not_a_function
+                        ),
                     }
-                },
-                _ => panic!("input[0] is not a variable or resolvable to a function: {:?}",input[0])
+                }
+                _ => panic!(
+                    "input[0] is not a variable or resolvable to a function: {:?}",
+                    input[0]
+                ),
             }
         }
+        print!("execute_on_ast resulting in: {:?}", return_result);
+        return_result
     }
 
-    fn execute_function_pre_parsed_secondaries(&mut self,func: FunctionTypes,secondaries: &[ExpressionTypes]) -> ExpressionTypes{
+    fn execute_function_pre_parsed_secondaries(
+        &mut self,
+        func: FunctionTypes,
+        secondaries: &[ExpressionTypes],
+    ) -> ExpressionTypes {
         match func {
             FunctionTypes::InBuildFunction(builtin) => {
                 println!(
@@ -330,10 +383,10 @@ impl Interpreter {
                 if secondaries.len() as i32 != builtin.2 && builtin.2 != -1 {
                     panic!("Function has gotten more or less context than it wants");
                 }
-                let func_result = builtin.1(&secondaries);
+                let func_result = builtin.1(secondaries);
                 println!("resulting in: {:?}", func_result);
 
-                return func_result;
+                func_result
             }
             FunctionTypes::CustomFunction => todo!(),
         }
@@ -442,7 +495,7 @@ impl Interpreter {
         }
     }
     pub fn execute_function(&mut self, func_enum: FunctionTypes, secondary_statements: &[String]) {
-        let primary_function = match func_enum {
+        let _primary_function = match func_enum {
             FunctionTypes::InBuildFunction(builtin) => {
                 let context_from_secondary =
                     self.secondary_string_vec_to_context_vec(secondary_statements, true);
@@ -542,9 +595,9 @@ impl fmt::Debug for FunctionTypes {
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SyntacticTypes{
+pub enum SyntacticTypes {
     Let,
-    Quote
+    Quote,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -557,7 +610,7 @@ pub enum ExpressionTypes {
     Nil,
 }
 impl ExpressionTypes {
-    fn is_nil(&self) -> bool {
+    fn _is_nil(&self) -> bool {
         matches!(self, ExpressionTypes::Nil)
     }
 }
@@ -578,7 +631,10 @@ impl Display for ExpressionTypes {
             ExpressionTypes::Function(to_display) => write!(f, "{}", to_display),
             ExpressionTypes::Nil => write!(f, "~nil~"),
             ExpressionTypes::Variable(to_display) => write!(f, "{}", to_display),
-            ExpressionTypes::Syntactic(to_display) => todo!(),
+            ExpressionTypes::Syntactic(to_display) => match to_display {
+                SyntacticTypes::Let => todo!(),
+                SyntacticTypes::Quote => todo!(),
+            },
         }
     }
 }
@@ -656,7 +712,7 @@ pub fn split_whitespace_not_in_parantheses_advanced_to_quote(input: &str) -> Vec
         // );
         if current_char == '\'' {
             quote_stack.push(paranthesis_depth);
-            current_substring = current_substring + "(quote ";
+            current_substring += "(quote ";
         } else if current_char == '(' {
             paranthesis_depth += 1;
             current_substring.push(current_char);

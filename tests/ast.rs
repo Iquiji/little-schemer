@@ -1,11 +1,12 @@
 #![allow(unused_imports)]
 use little_schemer::AtomTypes::{Bool, Integer, String, Symbol};
-use little_schemer::ExpressionTypes::{self, Atom, Function, List, Nil, Variable};
+use little_schemer::ExpressionTypes::{self, Atom, Function, List, Nil, Syntactic, Variable};
 use little_schemer::FunctionTypes::{self, CustomFunction, InBuildFunction};
-use little_schemer::Interpreter;
+use little_schemer::SyntacticTypes::{Let, Quote};
 use little_schemer::{
     split_whitespace_not_in_parantheses, split_whitespace_not_in_parantheses_advanced_to_quote,
 };
+use little_schemer::{Interpreter, SyntacticTypes};
 mod common;
 use common::assert_eval_eq;
 
@@ -41,7 +42,7 @@ fn ast_simple() {
             ]),
             Variable("rutrum".to_string()),
             Variable("nulla".to_string())
-        ]
+        ],
     );
 
     let program = "((car (list atom? null? eq?)) 'a)";
@@ -49,42 +50,37 @@ fn ast_simple() {
 
     assert_eq!(
         result,
-        vec![
+        vec![List(vec![
             List(vec![
+                Function(FunctionTypes::InBuildFunction((
+                    "car".to_string(),
+                    std::sync::Arc::new(little_schemer::built_ins::car),
+                    1
+                ))),
                 List(vec![
                     Function(FunctionTypes::InBuildFunction((
-                        "car".to_string(),
-                        std::sync::Arc::new(little_schemer::built_ins::car),
+                        "list".to_string(),
+                        std::sync::Arc::new(little_schemer::built_ins::list),
+                        -1
+                    ))),
+                    Function(FunctionTypes::InBuildFunction((
+                        "atom?".to_string(),
+                        std::sync::Arc::new(little_schemer::built_ins::is_atom),
                         1
                     ))),
-                    List(vec![
-                        Function(FunctionTypes::InBuildFunction((
-                            "list".to_string(),
-                            std::sync::Arc::new(little_schemer::built_ins::list),
-                            -1
-                        ))),
-                        Function(FunctionTypes::InBuildFunction((
-                            "atom?".to_string(),
-                            std::sync::Arc::new(little_schemer::built_ins::is_atom),
-                            1
-                        ))),
-                        Function(FunctionTypes::InBuildFunction((
-                            "null?".to_string(),
-                            std::sync::Arc::new(little_schemer::built_ins::is_null_list),
-                            1
-                        ))),
-                        Function(FunctionTypes::InBuildFunction((
-                            "eq?".to_string(),
-                            std::sync::Arc::new(little_schemer::built_ins::are_eq),
-                            1
-                        ))),
-                    ])
-                ]),
-                List(vec![
-                    Variable("quote".to_string()),
-                    Variable("a".to_string())
+                    Function(FunctionTypes::InBuildFunction((
+                        "null?".to_string(),
+                        std::sync::Arc::new(little_schemer::built_ins::is_null_list),
+                        1
+                    ))),
+                    Function(FunctionTypes::InBuildFunction((
+                        "eq?".to_string(),
+                        std::sync::Arc::new(little_schemer::built_ins::are_eq),
+                        1
+                    ))),
                 ])
-            ])
-        ]
+            ]),
+            List(vec![Syntactic(Quote), Variable("a".to_string())])
+        ])]
     );
 }
