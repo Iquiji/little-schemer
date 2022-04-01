@@ -25,3 +25,47 @@ fn let_test_1() {
         "'((a d) b e)",
     )
 }
+#[test]
+fn let_test_2() {
+    assert_eval_eq_ast_precompute(
+        "
+        (let ((f +) (x 2) (y 3))
+        (f x y))",
+        "'5",
+    )
+}
+#[test]
+fn let_test_3() {
+    assert_eval_eq_ast_precompute(
+        "
+    (let ((x 1))
+        (let ((x (+ x 1)))
+            (+ x x)))",
+        "'4",
+    )
+}
+#[test]
+fn let_test_4() {
+    assert_eval_eq_ast_precompute(
+        "
+        (let ((x '((a b) c)))
+        (cons (let ((x (cdr x)))
+                (car x))
+              (let ((x (car x)))
+                (cons (let ((x (cdr x)))
+                        (car x))
+                      (cons (let ((x (car x)))
+                              x)
+                            (cdr x))))))",
+        "
+        (let ((x '((a b) c)))
+        (cons (let ((x2 (cdr x)))
+                (car x2))
+              (let ((x3 (car x)))
+                (cons (let ((x4 (cdr x3)))
+                        (car x4))
+                      (cons (let ((x5 (car x3)))
+                              x5)
+                            (cdr x3))))))",
+    )
+}

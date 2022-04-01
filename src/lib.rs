@@ -35,7 +35,11 @@ impl Interpreter {
                 )),
                 FunctionTypes::InBuildFunction(("eq?".to_owned(), Arc::new(built_ins::are_eq), 2)),
                 FunctionTypes::InBuildFunction(("list".to_owned(), Arc::new(built_ins::list), -1)),
-                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
+                FunctionTypes::InBuildFunction((
+                    "+".to_owned(),
+                    Arc::new(built_ins::number_plus),
+                    -1,
+                )),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
@@ -53,6 +57,9 @@ impl Interpreter {
         }
         if word == "let" {
             return ExpressionTypes::Syntactic(SyntacticTypes::Let);
+        }
+        if word == "lambda" {
+            return ExpressionTypes::Syntactic(SyntacticTypes::Lambda);
         }
         // if word == "quote"{
         //     return TokenTypes::Syntactic("quote".to_string());
@@ -247,6 +254,7 @@ impl Interpreter {
                     return_result = replace_recursive(input[1].clone());
                     //return input[1].clone();
                 }
+                SyntacticTypes::Lambda => todo!(),
             }
         } else {
             // Not Syntactic
@@ -403,6 +411,7 @@ impl fmt::Debug for FunctionTypes {
 pub enum SyntacticTypes {
     Let,
     Quote,
+    Lambda,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -436,10 +445,7 @@ impl Display for ExpressionTypes {
             ExpressionTypes::Function(to_display) => write!(f, "{}", to_display),
             ExpressionTypes::Nil => write!(f, "~nil~"),
             ExpressionTypes::Variable(to_display) => write!(f, "{}", to_display),
-            ExpressionTypes::Syntactic(to_display) => match to_display {
-                SyntacticTypes::Let => todo!(),
-                SyntacticTypes::Quote => todo!(),
-            },
+            ExpressionTypes::Syntactic(_to_display) => todo!(),
         }
     }
 }

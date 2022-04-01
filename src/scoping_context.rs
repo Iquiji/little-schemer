@@ -12,6 +12,7 @@ impl Scope {
             map: HashMap::new(),
         }
     }
+    #[allow(dead_code)]
     pub fn new_with(with: &[(String, ExpressionTypes)]) -> Self {
         let mut scope = Scope::new();
         scope.insert_multiple(with);
@@ -20,6 +21,7 @@ impl Scope {
     pub fn get(&self, s: &str) -> Option<ExpressionTypes> {
         self.map.get(s).cloned()
     }
+    #[allow(dead_code)]
     pub fn insert_multiple(&mut self, input: &[(String, ExpressionTypes)]) {
         for pair in input {
             self.map.insert(pair.0.clone(), pair.1.clone());

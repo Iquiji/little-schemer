@@ -89,3 +89,22 @@ pub fn list(input: &[ExpressionTypes]) -> ExpressionTypes {
 pub fn are_eq(input: &[ExpressionTypes]) -> ExpressionTypes {
     ExpressionTypes::Atom(AtomTypes::Bool(input[0].eq(&input[1])))
 }
+
+pub fn number_plus(input: &[ExpressionTypes]) -> ExpressionTypes {
+    if input.is_empty() {
+        panic!("number_plus needs at least one argument!");
+    }
+    let mut temp_value = 0;
+    for num in input {
+        if let ExpressionTypes::Atom(atom) = num {
+            if let AtomTypes::Integer(number) = atom {
+                temp_value += number;
+            } else {
+                panic!("Atom in addition needs to be an Integer!");
+            }
+        } else {
+            panic!("Expression in addition needs to be an Atom/Integer!");
+        }
+    }
+    ExpressionTypes::Atom(AtomTypes::Integer(temp_value))
+}
