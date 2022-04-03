@@ -41,8 +41,8 @@ impl Interpreter {
                     Arc::new(built_ins::number_plus),
                     -1,
                 )),
-                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
-                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
+                FunctionTypes::InBuildFunction(("and".to_owned(), Arc::new(built_ins::and), -1)),
+                FunctionTypes::InBuildFunction(("or".to_owned(), Arc::new(built_ins::or), -1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
@@ -61,6 +61,9 @@ impl Interpreter {
         }
         if word == "lambda" {
             return ExpressionTypes::Syntactic(SyntacticTypes::Lambda);
+        }
+        if word == "define" {
+            return ExpressionTypes::Syntactic(SyntacticTypes::Define);
         }
         // if word == "quote"{
         //     return TokenTypes::Syntactic("quote".to_string());
@@ -142,7 +145,7 @@ impl Interpreter {
                     self.generate_abstract_syntax_tree(removed_parantheses),
                 ));
             }
-            // Just a normal part we can parse with eval_keyword
+            // Just a normal part we can parse with tokenizer
             else {
                 result_vec.push(self.tokenizer(&chunk));
             }
@@ -252,7 +255,7 @@ impl Interpreter {
                             _ => input,
                         }
                     }
-                    // TODO: symbols instead of variables in quoted context
+                    // symbols instead of variables in quoted context
                     return_result = replace_recursive(input[1].clone());
                     //return input[1].clone();
                 }
@@ -269,15 +272,37 @@ impl Interpreter {
                                 panic!("All items in a var list of a lambda need to be variables! Instead found: {:?}",var);
                             }
                         }
+                        // the same bindings that were in effect when the procedure was created are in effect again when the procedure is applied
+                        // This is true even if another binding for x is visible where the procedure is applied
+                        
                         return_result = ExpressionTypes::Function(FunctionTypes::CustomFunction((
                             needed_vars,
                             input[2..].to_vec(),
+                            Scope::compress(&self.scope_stack),
                         )));
+                        
                     } else {
                         // TODO:
                         panic!("First argument for lambda needs to be a list for now");
                     }
                 }
+                SyntacticTypes::Define => {
+                    // (define var expr)
+                    // Defining Expr Top level
+                    if input.len() != 3{
+                        // TODO:
+                        panic!("Define has to be of syntax: (define var expr)");
+                    }
+                    if let ExpressionTypes::Variable(var) =  &input[1]{
+                        let to_bind_to = self.execute_on_list_lookup_on_variable_return_else(input[2].clone());
+                        self.scope_stack[0].insert_single((var.clone(),to_bind_to.clone()));
+                        println!("define bound '{:?}' to '{:?}'",var,to_bind_to);
+                    }else{
+                        panic!("First argument for define has to be a variable")
+                    }
+                    // TODO: fix this hack! should return nothing
+                    return_result = ExpressionTypes::Nil;
+                },
             }
         } else {
             // Not Syntactic
@@ -383,7 +408,49 @@ impl Interpreter {
 
                 func_result
             }
-            FunctionTypes::CustomFunction(custom_function) => {}
+            FunctionTypes::CustomFunction(custom_function) => {
+                // Check if amount of Secondaries are equal to custom function arg length
+                if secondaries.len() != custom_function.0.len() {
+                    panic!("Length of args for cusotm function is unequal to needed amount! needed: {:?}, got: {:?}",custom_function.0,secondaries);
+                }
+                let mut new_scope = Scope::new();
+                for var in custom_function.0.iter().zip(secondaries) {
+                    new_scope.insert_single((var.0.clone(), var.1.clone()));
+                }
+
+                println!(
+                    "Pushing captured variables '{:?}' onto the scope stack for custom function",
+                    custom_function.2
+                );
+                self.scope_stack.push(custom_function.2);
+
+                println!(
+                    "Pushing '{:?}' onto the scope stack in custom function",
+                    new_scope
+                );
+                self.scope_stack.push(new_scope);
+
+                // Then execute expr until last element
+                for expr in &custom_function.1[0..(custom_function.1.len() - 1)] {
+                    self.execute_on_list_lookup_on_variable_return_else(expr.clone());
+                }
+                // last element will be returned
+                let func_result = self.execute_on_list_lookup_on_variable_return_else(
+                    custom_function.1[custom_function.1.len() - 1].clone(),
+                );
+
+                println!(
+                    "Popping '{:?}' from the scope stack in custom function",
+                    self.scope_stack.pop()
+                );
+
+                println!(
+                    "Popping captured variables '{:?}' from the scope stack in custom function",
+                    self.scope_stack.pop()
+                );
+
+                func_result
+            }
         }
     }
 }
@@ -393,7 +460,7 @@ type BuiltInFunction = Arc<fn(&[ExpressionTypes]) -> ExpressionTypes>;
 #[derive(Clone)]
 pub enum FunctionTypes {
     InBuildFunction((String, BuiltInFunction, i32)),
-    CustomFunction((Vec<String>, Vec<ExpressionTypes>)),
+    CustomFunction((Vec<String>, Vec<ExpressionTypes>,Scope)),
 }
 impl PartialEq for FunctionTypes {
     fn eq(&self, other: &Self) -> bool {
@@ -426,7 +493,7 @@ impl fmt::Debug for FunctionTypes {
                     builtin.0, builtin.2
                 )
             }
-            FunctionTypes::CustomFunction(_) => write!(f, "Unimplemented custom Function"),
+            FunctionTypes::CustomFunction(_) => write!(f, "Unimplemented for Debug! Custom Function"),
         }
     }
 }
@@ -435,6 +502,7 @@ pub enum SyntacticTypes {
     Let,
     Quote,
     Lambda,
+    Define,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

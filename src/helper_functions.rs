@@ -40,6 +40,8 @@ pub fn split_whitespace_not_in_parantheses(input: &str) -> Vec<String> {
 /// 'x -> (quote x) / '(a b c) -> (quote (a b c))
 pub fn split_whitespace_not_in_parantheses_advanced_to_quote(input: &str) -> Vec<String> {
     let input = input.replace("\n", " ").replace("  ", " ");
+    // TODO: handle square brackets better
+    let input = input.replace('[', "(").replace(']', ")");
 
     let mut result: Vec<String> = vec![];
     let mut current_substring = String::new();

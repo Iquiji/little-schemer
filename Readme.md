@@ -12,12 +12,13 @@
 - null?, eq?, atom? builtins
 - list, car, cdr, cons builtins
 - let expressions
+- lambda expressions (without rest parameter)
 
 ### Currently Missing:
-- lambda expressions
 - define
 - unqouting
 - to spec implementation for let
+- to spec implementation for lambda
 - the rest
 ---
 

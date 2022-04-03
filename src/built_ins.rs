@@ -90,6 +90,7 @@ pub fn are_eq(input: &[ExpressionTypes]) -> ExpressionTypes {
     ExpressionTypes::Atom(AtomTypes::Bool(input[0].eq(&input[1])))
 }
 
+/// Takes x args, name: +
 pub fn number_plus(input: &[ExpressionTypes]) -> ExpressionTypes {
     if input.is_empty() {
         panic!("number_plus needs at least one argument!");
@@ -107,4 +108,58 @@ pub fn number_plus(input: &[ExpressionTypes]) -> ExpressionTypes {
         }
     }
     ExpressionTypes::Atom(AtomTypes::Integer(temp_value))
+}
+
+/// Takes x args, name: and
+/// https://www.scheme.com/tspl4/control.html#./control:h0
+pub fn and(input: &[ExpressionTypes]) -> ExpressionTypes {
+    if input.is_empty(){
+        return ExpressionTypes::Atom(AtomTypes::Bool(true));
+    }
+    // go over all but last one
+    for num in &input[0..input.len().saturating_sub(2)] {
+        if let ExpressionTypes::Atom(atom) = num {
+            if let AtomTypes::Bool(bool) = atom {
+                if !bool{
+                    return ExpressionTypes::Atom(AtomTypes::Bool(false));
+                }
+            } else {
+                //
+            }
+        } else {
+            //
+        }
+    }
+    // return last one if it doesnt evaluate to bool
+    if let ExpressionTypes::Atom(atom) = &input[(input.len()-1)] {
+        if let AtomTypes::Bool(bool) = atom {
+            if !bool{
+                return ExpressionTypes::Atom(AtomTypes::Bool(false));
+            }
+        } else {
+            return input[(input.len()-1)].clone();
+        }
+    } else {
+        return input[(input.len()-1)].clone();
+    }
+    ExpressionTypes::Atom(AtomTypes::Bool(true))
+}
+/// Takes x args, name: or
+/// https://www.scheme.com/tspl4/control.html#./control:h0
+pub fn or(input: &[ExpressionTypes]) -> ExpressionTypes {
+    // go over all and return if something does not evaluate to false
+    for element in input {
+        if let ExpressionTypes::Atom(atom) = element {
+            if let AtomTypes::Bool(bool) = atom {
+                if *bool{
+                    return ExpressionTypes::Atom(AtomTypes::Bool(true));
+                }
+            } else {
+                return element.clone();
+            }
+        } else {
+            return element.clone();
+        }
+    }
+    ExpressionTypes::Atom(AtomTypes::Bool(false))
 }
