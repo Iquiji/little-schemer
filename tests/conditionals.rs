@@ -9,8 +9,8 @@ use little_schemer::Interpreter;
 use little_schemer::SyntacticTypes::{Let, Quote};
 mod common;
 use common::{
-    assert_eval_eq_ast_precompute, ast_precompute_execute, execute_form_with_ast,
-    execute_programm_with_ast, assert_eval_eq_after_predefine_ast_precompute
+    assert_eval_eq_after_predefine_ast_precompute, assert_eval_eq_ast_precompute,
+    ast_precompute_execute, execute_form_with_ast, execute_programm_with_ast,
 };
 #[test]
 fn and_test_1() {
@@ -54,6 +54,14 @@ fn or_test_2() {
 }
 #[test]
 fn or_test_3() {
+    assert_eval_eq_ast_precompute(
+        "
+        (or)",
+        "'#f",
+    )
+}
+#[test]
+fn cond_test_1() {
     assert_eval_eq_ast_precompute(
         "
         (or)",

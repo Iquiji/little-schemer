@@ -65,6 +65,12 @@ impl Interpreter {
         if word == "define" {
             return ExpressionTypes::Syntactic(SyntacticTypes::Define);
         }
+        if word == "cond" {
+            return ExpressionTypes::Syntactic(SyntacticTypes::Cond);
+        }
+        if word == "else" {
+            return ExpressionTypes::Syntactic(SyntacticTypes::Else);
+        }
         // if word == "quote"{
         //     return TokenTypes::Syntactic("quote".to_string());
         // }
@@ -179,7 +185,7 @@ impl Interpreter {
     //  Function? -> Execute on all Secondaries
 
     pub fn execute_on_ast(&mut self, input: &[ExpressionTypes]) -> ExpressionTypes {
-        println!("execute_on_ast: {:?}", input);
+        // println!("execute_on_ast: {:?}", input);
         let return_result: ExpressionTypes;
 
         if let ExpressionTypes::Syntactic(syntactic) = &input[0] {
@@ -274,13 +280,12 @@ impl Interpreter {
                         }
                         // the same bindings that were in effect when the procedure was created are in effect again when the procedure is applied
                         // This is true even if another binding for x is visible where the procedure is applied
-                        
+
                         return_result = ExpressionTypes::Function(FunctionTypes::CustomFunction((
                             needed_vars,
                             input[2..].to_vec(),
                             Scope::compress(&self.scope_stack),
                         )));
-                        
                     } else {
                         // TODO:
                         panic!("First argument for lambda needs to be a list for now");
@@ -289,20 +294,113 @@ impl Interpreter {
                 SyntacticTypes::Define => {
                     // (define var expr)
                     // Defining Expr Top level
-                    if input.len() != 3{
+                    if input.len() != 3 {
                         // TODO:
                         panic!("Define has to be of syntax: (define var expr)");
                     }
-                    if let ExpressionTypes::Variable(var) =  &input[1]{
-                        let to_bind_to = self.execute_on_list_lookup_on_variable_return_else(input[2].clone());
-                        self.scope_stack[0].insert_single((var.clone(),to_bind_to.clone()));
-                        println!("define bound '{:?}' to '{:?}'",var,to_bind_to);
-                    }else{
+                    if let ExpressionTypes::Variable(var) = &input[1] {
+                        let to_bind_to =
+                            self.execute_on_list_lookup_on_variable_return_else(input[2].clone());
+                        self.scope_stack[0].insert_single((var.clone(), to_bind_to.clone()));
+                        println!("define bound '{:?}' to '{:?}'", var, to_bind_to);
+                    } else {
                         panic!("First argument for define has to be a variable")
                     }
                     // TODO: fix this hack! should return nothing
                     return_result = ExpressionTypes::Nil;
-                },
+                }
+                // (cond clause1 clause2 ...)
+                // Clause:
+                // (test) -> test
+                // (test expr1 expr2 ...) -> expr-n
+                // (test => expr) -> expr
+                // (else expr1 expr2 ...) -> expr-n
+                // no evaluate to true -> Nil
+                SyntacticTypes::Cond => {
+                    let mut cond_result = ExpressionTypes::Nil;
+                    // clauses need to be lists
+                    // go over clauses and return first that evaluates to a true value (anything other than #f)
+                    for clause_item in &input[1..] {
+                        if let ExpressionTypes::List(clause) = clause_item {
+                            if clause.is_empty() {
+                                panic!("Clause list cant be empty!");
+                            }
+                            if let ExpressionTypes::Syntactic(SyntacticTypes::Else) = clause[0] {
+                                if clause.len() == 1 {
+                                    cond_result = ExpressionTypes::Atom(AtomTypes::Bool(true));
+                                } else {
+                                    if clause.len().saturating_sub(2) >= 1 {
+                                        for expr in &clause[1..(clause.len().saturating_sub(2))] {
+                                            self.execute_on_list_lookup_on_variable_return_else(
+                                                expr.clone(),
+                                            );
+                                        }
+                                    }
+                                    // last element will be returned
+                                    cond_result = self
+                                        .execute_on_list_lookup_on_variable_return_else(
+                                            clause[clause.len() - 1].clone(),
+                                        );
+                                }
+                            } else {
+                                let first_evaluated = self
+                                    .execute_on_list_lookup_on_variable_return_else(
+                                        clause[0].clone(),
+                                    );
+                                // Everything not Bool(false)
+                                if let ExpressionTypes::Atom(AtomTypes::Bool(bool)) =
+                                    first_evaluated
+                                {
+                                    if bool {
+                                        if clause.len() == 1 {
+                                            cond_result = first_evaluated;
+                                            break;
+                                        } else {
+                                            if clause.len().saturating_sub(2) >= 1 {
+                                                for expr in
+                                                    &clause[1..(clause.len().saturating_sub(2))]
+                                                {
+                                                    self.execute_on_list_lookup_on_variable_return_else(expr.clone());
+                                                }
+                                            }
+                                            // last element will be returned
+                                            cond_result = self
+                                                .execute_on_list_lookup_on_variable_return_else(
+                                                    clause[clause.len() - 1].clone(),
+                                                );
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    if clause.len() == 1 {
+                                        cond_result = first_evaluated;
+                                        break;
+                                    } else {
+                                        if clause.len().saturating_sub(2) >= 1 {
+                                            for expr in &clause[1..(clause.len().saturating_sub(2))]
+                                            {
+                                                self.execute_on_list_lookup_on_variable_return_else(expr.clone());
+                                            }
+                                        }
+                                        // last element will be returned
+                                        cond_result = self
+                                            .execute_on_list_lookup_on_variable_return_else(
+                                                clause[clause.len() - 1].clone(),
+                                            );
+                                        break;
+                                    }
+                                }
+                            }
+                        } else {
+                            panic!(
+                                "Clause needs to be a list! instead found: {:?}",
+                                clause_item
+                            );
+                        }
+                    }
+                    return_result = cond_result;
+                }
+                SyntacticTypes::Else => unreachable!(),
             }
         } else {
             // Not Syntactic
@@ -384,7 +482,10 @@ impl Interpreter {
                 ),
             }
         }
-        println!("execute_on_ast resulting in: {:?}", return_result);
+        println!(
+            "execute_on_ast '{}' resulting in: {}",
+            ExpressionTypes::List(input.to_vec()), return_result
+        );
         return_result
     }
 
@@ -404,7 +505,7 @@ impl Interpreter {
                     panic!("Function has gotten more or less context than it wants");
                 }
                 let func_result = builtin.1(secondaries);
-                println!("resulting in: {:?}", func_result);
+                // println!("resulting in: {:?}", func_result);
 
                 func_result
             }
@@ -460,7 +561,7 @@ type BuiltInFunction = Arc<fn(&[ExpressionTypes]) -> ExpressionTypes>;
 #[derive(Clone)]
 pub enum FunctionTypes {
     InBuildFunction((String, BuiltInFunction, i32)),
-    CustomFunction((Vec<String>, Vec<ExpressionTypes>,Scope)),
+    CustomFunction((Vec<String>, Vec<ExpressionTypes>, Scope)),
 }
 impl PartialEq for FunctionTypes {
     fn eq(&self, other: &Self) -> bool {
@@ -478,7 +579,7 @@ impl Display for FunctionTypes {
         // write!(f, "({}, {})", self.x, self.y)
         match self {
             FunctionTypes::InBuildFunction(to_display) => write!(f, "{}", to_display.0),
-            FunctionTypes::CustomFunction(_) => todo!(),
+            FunctionTypes::CustomFunction(to_display) => write!(f, "closure taking '{:?}'", to_display.0),
         }
     }
 }
@@ -493,7 +594,9 @@ impl fmt::Debug for FunctionTypes {
                     builtin.0, builtin.2
                 )
             }
-            FunctionTypes::CustomFunction(_) => write!(f, "Unimplemented for Debug! Custom Function"),
+            FunctionTypes::CustomFunction(_) => {
+                write!(f, "Unimplemented for Debug! Custom Function")
+            }
         }
     }
 }
@@ -503,6 +606,8 @@ pub enum SyntacticTypes {
     Quote,
     Lambda,
     Define,
+    Cond,
+    Else,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -534,9 +639,20 @@ impl Display for ExpressionTypes {
                 })
             }
             ExpressionTypes::Function(to_display) => write!(f, "{}", to_display),
-            ExpressionTypes::Nil => write!(f, "~nil~"),
+            ExpressionTypes::Nil => write!(f, "~!nil!~"),
             ExpressionTypes::Variable(to_display) => write!(f, "{}", to_display),
-            ExpressionTypes::Syntactic(_to_display) => todo!(),
+            ExpressionTypes::Syntactic(to_display) => write!(
+                f,
+                "{}",
+                match to_display {
+                    SyntacticTypes::Let => "let",
+                    SyntacticTypes::Quote => "quote",
+                    SyntacticTypes::Lambda => "lambda",
+                    SyntacticTypes::Define => "define",
+                    SyntacticTypes::Cond => "cond",
+                    SyntacticTypes::Else => "else",
+                }
+            ),
         }
     }
 }
@@ -555,7 +671,7 @@ impl Display for AtomTypes {
             AtomTypes::Symbol(to_display) => write!(f, r#"'{}"#, to_display),
             AtomTypes::String(to_display) => write!(f, r#"'"{}""#, to_display),
             AtomTypes::Integer(to_display) => write!(f, "'{}", to_display),
-            AtomTypes::Bool(to_display) => write!(f, "'{}", if *to_display { "#t" } else { "f" }),
+            AtomTypes::Bool(to_display) => write!(f, "'{}", if *to_display { "#t" } else { "#f" }),
         }
     }
 }

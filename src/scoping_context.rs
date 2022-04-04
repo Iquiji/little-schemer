@@ -2,7 +2,7 @@
 use crate::*;
 use std::collections::HashMap;
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Scope {
     map: HashMap<String, ExpressionTypes>,
 }
@@ -21,8 +21,11 @@ impl Scope {
     pub fn get(&self, s: &str) -> Option<ExpressionTypes> {
         self.map.get(s).cloned()
     }
-    pub fn get_all(&self) -> Vec<(String,ExpressionTypes)>{
-        self.map.iter().map(|x| (x.0.clone(),x.1.clone())).collect()
+    pub fn get_all(&self) -> Vec<(String, ExpressionTypes)> {
+        self.map
+            .iter()
+            .map(|x| (x.0.clone(), x.1.clone()))
+            .collect()
     }
     #[allow(dead_code)]
     pub fn insert_multiple(&mut self, input: &[(String, ExpressionTypes)]) {
@@ -33,9 +36,9 @@ impl Scope {
     pub fn insert_single(&mut self, input: (String, ExpressionTypes)) {
         self.map.insert(input.0.clone(), input.1);
     }
-    pub fn compress(scope_list: &[Scope]) -> Scope{
+    pub fn compress(scope_list: &[Scope]) -> Scope {
         let mut compressed_scope = Scope::new();
-        for scope in scope_list{
+        for scope in scope_list {
             compressed_scope.insert_multiple(&scope.get_all());
         }
         compressed_scope

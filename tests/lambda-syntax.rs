@@ -68,8 +68,5 @@ fn lambda_test_5() {
 }
 #[test]
 fn lambda_test_6() {
-    assert_eval_eq_ast_precompute(
-        "(let ([x 'a]) (cons x x))",
-        "((lambda (x) (cons x x)) 'a)",
-    )
+    assert_eval_eq_ast_precompute("(let ([x 'a]) (cons x x))", "((lambda (x) (cons x x)) 'a)")
 }
