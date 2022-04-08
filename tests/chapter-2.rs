@@ -12,6 +12,7 @@ use common::{
     assert_eval_eq_after_predefine_ast_precompute, assert_eval_eq_ast_precompute,
     ast_precompute_execute, execute_form_with_ast, execute_programm_with_ast,
 };
+
 // Note: and in qoute still function and
 #[test]
 fn lat_function_1() {
