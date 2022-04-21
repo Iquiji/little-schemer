@@ -58,7 +58,7 @@ impl Interpreter {
                     Arc::new(built_ins::is_number),
                     1,
                 )),
-                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
+                FunctionTypes::InBuildFunction(("*".to_owned(), Arc::new(built_ins::number_times), -1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),

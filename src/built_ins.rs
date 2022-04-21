@@ -138,6 +138,26 @@ pub fn number_plus(input: &[ExpressionTypes]) -> ExpressionTypes {
     ExpressionTypes::Atom(AtomTypes::Integer(temp_value))
 }
 
+/// Takes x args, name: *
+pub fn number_times(input: &[ExpressionTypes]) -> ExpressionTypes {
+    if input.is_empty() {
+        panic!("number_times needs at least one argument!");
+    }
+    let mut temp_value = 1;
+    for num in input {
+        if let ExpressionTypes::Atom(atom) = num {
+            if let AtomTypes::Integer(number) = atom {
+                temp_value *= number;
+            } else {
+                panic!("Atom in multiplication needs to be an Integer!");
+            }
+        } else {
+            panic!("Expression in multiplication needs to be an Atom/Integer!");
+        }
+    }
+    ExpressionTypes::Atom(AtomTypes::Integer(temp_value))
+}
+
 /// Takes x args, name: -
 pub fn number_minus(input: &[ExpressionTypes]) -> ExpressionTypes {
     if input.is_empty() {

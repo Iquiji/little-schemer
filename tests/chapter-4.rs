@@ -71,10 +71,6 @@ fn manual_plus_test_1() {
         (cond 
             ((zero? b) a)
             (else (sub1 (o- a (sub1 b)))))))
-(define addtup
-    (lambda (tup)
-        (cond
-            ((null? tup) 0)
             "#,
         r#"(o- 30 39)"#,
         r#"'-9"#,
