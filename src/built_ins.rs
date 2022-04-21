@@ -11,6 +11,34 @@ pub fn is_atom(input: &[ExpressionTypes]) -> ExpressionTypes {
     }
 }
 
+/// Takes 1 arg, name: zero?
+pub fn is_zero(input: &[ExpressionTypes]) -> ExpressionTypes {
+    if input.len() != 1 {
+        return ExpressionTypes::Nil;
+    }
+    match &input[0] {
+        ExpressionTypes::Atom(atom) => match atom {
+            AtomTypes::Integer(int) => ExpressionTypes::Atom(AtomTypes::Bool(int.eq(&0))),
+            _ => ExpressionTypes::Atom(AtomTypes::Bool(false)),
+        },
+        _ => ExpressionTypes::Atom(AtomTypes::Bool(false)),
+    }
+}
+
+/// Takes 1 arg, name: number?
+pub fn is_number(input: &[ExpressionTypes]) -> ExpressionTypes {
+    if input.len() != 1 {
+        return ExpressionTypes::Nil;
+    }
+    match &input[0] {
+        ExpressionTypes::Atom(atom) => match atom {
+            AtomTypes::Integer(int) => ExpressionTypes::Atom(AtomTypes::Bool(true)),
+            _ => ExpressionTypes::Atom(AtomTypes::Bool(false)),
+        },
+        _ => ExpressionTypes::Atom(AtomTypes::Bool(false)),
+    }
+}
+
 /// Takes 1 arg, name: null?
 pub fn is_null_list(input: &[ExpressionTypes]) -> ExpressionTypes {
     if input.len() != 1 {
@@ -100,6 +128,32 @@ pub fn number_plus(input: &[ExpressionTypes]) -> ExpressionTypes {
         if let ExpressionTypes::Atom(atom) = num {
             if let AtomTypes::Integer(number) = atom {
                 temp_value += number;
+            } else {
+                panic!("Atom in addition needs to be an Integer!");
+            }
+        } else {
+            panic!("Expression in addition needs to be an Atom/Integer!");
+        }
+    }
+    ExpressionTypes::Atom(AtomTypes::Integer(temp_value))
+}
+
+/// Takes x args, name: -
+pub fn number_minus(input: &[ExpressionTypes]) -> ExpressionTypes {
+    if input.is_empty() {
+        panic!("number_plus needs at least one argument!");
+    }
+    let mut first = true;
+    let mut temp_value = 0;
+    for num in input {
+        if let ExpressionTypes::Atom(atom) = num {
+            if let AtomTypes::Integer(number) = atom {
+                if first {
+                    temp_value += number;
+                    first = false;
+                } else {
+                    temp_value -= number;
+                }
             } else {
                 panic!("Atom in addition needs to be an Integer!");
             }

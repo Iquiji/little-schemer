@@ -43,6 +43,25 @@ impl Interpreter {
                 )),
                 FunctionTypes::InBuildFunction(("and".to_owned(), Arc::new(built_ins::and), -1)),
                 FunctionTypes::InBuildFunction(("or".to_owned(), Arc::new(built_ins::or), -1)),
+                FunctionTypes::InBuildFunction((
+                    "-".to_owned(),
+                    Arc::new(built_ins::number_minus),
+                    -1,
+                )),
+                FunctionTypes::InBuildFunction((
+                    "zero?".to_owned(),
+                    Arc::new(built_ins::is_zero),
+                    1,
+                )),
+                FunctionTypes::InBuildFunction((
+                    "number?".to_owned(),
+                    Arc::new(built_ins::is_number),
+                    1,
+                )),
+                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
+                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
+                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
+                FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
                 FunctionTypes::InBuildFunction(("car".to_owned(), Arc::new(built_ins::car), 1)),
@@ -484,7 +503,8 @@ impl Interpreter {
         }
         println!(
             "execute_on_ast '{}' resulting in: {}",
-            ExpressionTypes::List(input.to_vec()), return_result
+            ExpressionTypes::List(input.to_vec()),
+            return_result
         );
         return_result
     }
@@ -579,7 +599,9 @@ impl Display for FunctionTypes {
         // write!(f, "({}, {})", self.x, self.y)
         match self {
             FunctionTypes::InBuildFunction(to_display) => write!(f, "{}", to_display.0),
-            FunctionTypes::CustomFunction(to_display) => write!(f, "closure taking '{:?}'", to_display.0),
+            FunctionTypes::CustomFunction(to_display) => {
+                write!(f, "closure taking '{:?}'", to_display.0)
+            }
         }
     }
 }
